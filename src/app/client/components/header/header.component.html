@@ -1,0 +1,54 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+      <!-- Logo y nombre -->
+      <a class="navbar-brand d-flex align-items-center" href="#">
+        <span>TRaiD</span>
+      </a>
+  
+      <!-- Toggle button para móvil -->
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar"
+              aria-controls="adminNavbar" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+  
+      <!-- Menú de navegación -->
+      <div class="collapse navbar-collapse" id="adminNavbar">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <!-- Gestión de Administradores -->
+          <li class="nav-item">
+            <a class="nav-link" routerLink="/gestion-productos" routerLinkActive="active">
+              <i class="bi bi-people-fill me-1"></i>Main Page
+            </a>
+          </li>
+          <!-- Otros elementos de navegación aquí -->
+        </ul>
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <!-- Gestión de Administradores -->
+          <li class="nav-item">
+            <a class="nav-link" routerLink="/gestion-pedidos" routerLinkActive="active">
+              <i class="bi bi-people-fill me-1"></i>Browse Bots
+            </a>
+          </li>
+          <!-- Otros elementos de navegación aquí -->
+        </ul>
+
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <!-- Gestión de Administradores -->
+          <li class="nav-item">
+            <a class="nav-link" routerLink="/edicion-administrador" routerLinkActive="active">
+              <i class="bi bi-people-fill me-1"></i>Your Plan
+            </a>
+          </li>
+          <!-- Otros elementos de navegación aquí -->
+        </ul>
+  
+        <!-- Perfil y Logout -->
+        <div class="d-flex align-items-center">
+          <button class="btn btn-outline-light" (click)="logout()">
+            <i class="bi bi-box-arrow-right me-1"></i>Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+  
