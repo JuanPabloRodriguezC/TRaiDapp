@@ -1,0 +1,31 @@
+<header>
+    <app-header></app-header>
+  </header>
+  
+  <div class="container mt-5">
+    <!-- Sección de Comercios -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <h2 class="text-center mb-4">Trading Bots Catalog</h2>
+      </div>
+    </div>
+  
+    <!-- Sección de Productos -->
+    <div class="row">
+      <div class="col-md-8">
+        <div class="row" *ngIf="!cargandoProductos">
+          <div class="col-md-6 mb-4" *ngFor="let bot of bots">
+            <div class="card h-100">
+              <div class="card-body">
+                <h5 class="card-title">{{bot.nombre}}</h5>
+                <p class="card-text">
+                  <strong>Categoría:</strong>Premium<br>
+                  <strong>Precio:</strong>1000<br>
+                </p>
+                <button class="btn btn-primary" click="getbots()"> print bots</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+  </div>
