@@ -1,28 +1,7 @@
-// middleware/auth.js
-import { verify, sign } from 'jsonwebtoken';
-
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-
-  verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid token' });
-    }
-    req.user = user;
-    next();
-  });
-};
-
 // routes/auth.js
 import { Router } from 'express';
 const router = Router();
 import { compare } from 'bcrypt';
-import jwt from 'jsonwebtoken';
 
 router.post('/login', async (req, res) => {
   try {
