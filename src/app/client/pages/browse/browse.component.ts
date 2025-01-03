@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders, HttpClientModule } from '@angular/common/http';
+import { TradingBot } from '../../Interfaces/bot';
 import { ApiService } from '../../../Services/api.service';
 import { HeaderComponent } from '../../components/header/header.component';
 
@@ -13,18 +13,17 @@ import { HeaderComponent } from '../../components/header/header.component';
 })
 export class BrowseComponent {
   cargandoProductos: boolean = false;
-  bot: any = {
-    nombre: "elprimero",
-    precio: 1400,
-    categoria: "premium"
-  };
-  bots: any[] =  [];
+  bots: TradingBot[] =  [];
   constructor(private api: ApiService){
-    this.bots.push(this.bot);
   }
 
-  getbots(){
-    console.log(this.api.getBots())
+  ngOnInit(){
+    let data = this.api.getBots();
+    data.subscribe({
+      next: res => {
+        this.bots = res;
+      },error: err => {console.error(err) }  // Imprimir el error en caso de fallo
+    });
   }
 
   
