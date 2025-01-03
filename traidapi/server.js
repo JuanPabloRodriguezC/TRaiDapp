@@ -1,22 +1,30 @@
 // server.js
-import express, { json } from 'express';
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+// Route imports
+import botsRouter from './routes/bots.js';
+//import authRouter from './routes/auth';
+
+dotenv.config();
 const app = express();
 
-// Route imports
-import botsRouter from './routes/bots';
-import usersRouter from './routes/users';
-import subscriptionsRouter from './routes/subscriptions';
-import authRouter from './routes/auth';
+console.log('Starting server...');
 
 // Middleware
-app.use(json());
+app.use(express.json());
 app.use(cors());
 
 // Route middlewares
 app.use('/api/bots', botsRouter);
-app.use('/api/users', usersRouter);
-app.use('/api/subscriptions', subscriptionsRouter);
-app.use('/api/auth', authRouter);
+//app.use('/api/auth', authRouter);
+
+// Log when routes are set up
+console.log('Routes configured');
+
+app.listen(3000, () => {
+    console.log('Server running on port 3000');
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
