@@ -10,23 +10,34 @@
       </div>
     </div>
   
-    <!-- Sección de Productos -->
-    <div class="row">
-      <div class="col-md-8">
-        <div class="row" *ngIf="!cargandoProductos">
-          <div class="col-md-6 mb-4" *ngFor="let bot of bots">
-            <div class="card h-100">
-              <div class="card-body">
-                <h5 class="card-title">{{bot.id}}</h5>
-                <p class="card-text">
-                  <strong>Categoría:</strong>Premium<br>
-                  <strong>Precio:</strong>1000<br>
-                </p>
-                <button class="btn btn-primary">Explore Bot</button>
-                <button class="btn btn-danger">TrAId</button>
-              </div>
+     <!-- Product Section -->
+  <div class="row">
+    <div class="col-12">
+      <div class="row" *ngIf="!cargandoProductos">
+        <div class="col-md-4 mb-4" *ngFor="let bot of bots">
+          <div class="card h-100">
+            <!-- Card Header -->
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="card-title mb-0">{{ bot.name }}</h5>
+              <span
+                class="badge rounded-pill"
+                [ngClass]="getBadgeClass(bot.subscriptionName)"
+              >
+                {{ bot.subscriptionName }}
+              </span>
+            </div>
+
+            <!-- Card Body -->
+            <div class="card-body">
+              <p class="card-text">
+                <strong>Trading Error:</strong> {{ bot.error }}<br />
+              </p>
+              <button class="btn btn-info me-4">Explore Bot</button>
+              <button class="btn btn-traid">TRaiD</button>
             </div>
           </div>
         </div>
       </div>
+    </div>
   </div>
+</div>

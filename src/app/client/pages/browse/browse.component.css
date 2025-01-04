@@ -1,0 +1,27 @@
+.badge-platinum {
+    background-color: #7bbebf; /* Indigo */
+    color: #000000; /* White */
+  }
+  
+.badge-diamond {
+  background-color: #dce7e7; /* Forest Green */
+  color: #000000; /* White */
+}
+
+.badge-gold {
+  background-color: #f0cf4c; /* Gold */
+  color: #000000; /* Black */
+}
+
+.btn-info {
+  background-color: #485355; /* Indigo */
+  color: #fff; /* White */
+}
+
+.btn-traid {
+background-color: #C5A13D; /* Forest Green */
+color: #fff; /* White */
+}
+
+
+  

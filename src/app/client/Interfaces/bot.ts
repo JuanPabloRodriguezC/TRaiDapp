@@ -1,6 +1,7 @@
 export interface TradingBot {
     id: number;
+    name: string;
     description_id: string;
-    rank: number;
+    sub_id: number;
     error: number;
   }
