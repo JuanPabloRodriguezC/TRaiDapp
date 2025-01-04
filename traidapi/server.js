@@ -2,11 +2,35 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-// Route imports
-import botsRouter from './routes/bots.js';
-//import authRouter from './routes/auth';
+import pkg from 'pg';
 
 dotenv.config();
+
+const { Pool } = pkg;
+
+// Create pool AFTER environment variables are loaded
+const pool = new Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT,
+    connectionTimeoutMillis: 5000,    // 5 seconds
+    query_timeout: 10000              // 10 seconds
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected pool error:', err);
+});
+
+console.log('Environment variables:', {
+  DB_NAME: process.env.DB_NAME,
+  DB_HOST: process.env.DB_HOST,
+  DB_PORT: process.env.DB_PORT,
+  // Don't log password for security
+  DB_USER: process.env.DB_USER
+});
+
 const app = express();
 
 console.log('Starting server...');
@@ -15,9 +39,11 @@ console.log('Starting server...');
 app.use(express.json());
 app.use(cors());
 
+// Route imports
+import botsRouter from './routes/bots.js';
+
 // Route middlewares
-app.use('/api/bots', botsRouter);
-//app.use('/api/auth', authRouter);
+app.use('/api/bots', botsRouter(pool));
 
 // Log when routes are set up
 console.log('Routes configured');
