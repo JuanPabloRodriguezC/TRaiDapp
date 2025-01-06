@@ -40,7 +40,6 @@ export class BrowseComponent {
     ).subscribe({
       next: (botsWithSubs) => {
         this.bots = botsWithSubs;
-        console.log(this.bots);
       },
       error: (error) => {
         console.error('Error loading bots with subscriptions:', error);
