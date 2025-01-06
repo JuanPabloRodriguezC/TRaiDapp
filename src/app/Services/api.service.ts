@@ -3,8 +3,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { TradingBot } from '../client/Interfaces/bot';
-import { Subscription } from '../client/Interfaces/subs';
+import { TradingBot, Subscription } from '../client/Interfaces/bot';
 
 @Injectable({
   providedIn: 'root'
@@ -28,6 +27,10 @@ export class ApiService {
   //bots
   getBots(): Observable<TradingBot[]> {
     return this.http.get<TradingBot[]>(`${this.apiUrl}/bots`)
+      .pipe(catchError(this.handleError));
+  }
+  getBot(id: number): Observable<TradingBot> {
+    return this.http.get<TradingBot>(`${this.apiUrl}/bots/${id}`)
       .pipe(catchError(this.handleError));
   }
 

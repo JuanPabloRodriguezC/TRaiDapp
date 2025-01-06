@@ -16,11 +16,12 @@
 .btn-info {
   background-color: #485355; /* Indigo */
   color: #fff; /* White */
+  border-color: #485355;
 }
 
 .btn-traid {
-background-color: #C5A13D; /* Forest Green */
-color: #fff; /* White */
+  background-color: #C5A13D; /* Forest Green */
+  color: #fff; /* White */
 }
 
 

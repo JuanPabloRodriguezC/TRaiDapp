@@ -32,7 +32,7 @@
               <p class="card-text">
                 <strong>Trading Error:</strong> {{ bot.error }}<br />
               </p>
-              <button class="btn btn-info me-4">Explore Bot</button>
+              <button class="btn btn-info me-4" (click)="goToExplore(bot.id)">Explore Bot</button>
               <button class="btn btn-traid">TRaiD</button>
             </div>
           </div>

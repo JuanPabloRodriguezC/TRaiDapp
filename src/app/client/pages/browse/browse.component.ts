@@ -1,12 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { TradingBot } from '../../Interfaces/bot';
-import { Subscription } from '../../Interfaces/subs';
+import { TradingBot, Subscription } from '../../Interfaces/bot';
 import { ApiService } from '../../../Services/api.service';
 import { HeaderComponent } from '../../components/header/header.component';
 import { forkJoin, Observable } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
+import { Router } from '@angular/router';
 
 
 interface BotWithSubscription extends TradingBot {
@@ -15,14 +14,14 @@ interface BotWithSubscription extends TradingBot {
 
 @Component({
   selector: 'app-browse',
-  imports: [CommonModule, ReactiveFormsModule, HeaderComponent],
+  imports: [CommonModule,HeaderComponent],
   templateUrl: './browse.component.html',
   styleUrl: './browse.component.css'
 })
 export class BrowseComponent {
   cargandoProductos: boolean = false;
   bots: BotWithSubscription[] =  [];
-  constructor(private api: ApiService){
+  constructor(private api: ApiService, private router: Router){
   }
 
   ngOnInit(){
@@ -63,5 +62,9 @@ export class BrowseComponent {
       default:
         return 'bg-info text-dark';
     }
+  }
+
+  goToExplore(bot_id: number){
+    this.router.navigate(['/explore-bot', bot_id]);
   }
 }
