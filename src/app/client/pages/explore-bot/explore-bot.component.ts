@@ -2,9 +2,9 @@ import { Component } from '@angular/core';
 import { NgxChartsModule } from '@swimlane/ngx-charts';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../Services/api.service';
-import { TradingBot } from '../../Interfaces/bot';
+import { TradingBot, TimeData } from '../../Interfaces/bot';
 import { HeaderComponent } from '../../components/header/header.component';
-import { multi } from '../../Interfaces/data';
+import { map, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-explore-bot',
@@ -25,16 +25,16 @@ export class ExploreBotComponent {
   yAxis: boolean = true;
   showYAxisLabel: boolean = true;
   showXAxisLabel: boolean = true;
-  xAxisLabel: string = 'Year';
-  yAxisLabel: string = 'Population';
+  xAxisLabel: string = 'Time';
+  yAxisLabel: string = 'Price';
   timeline: boolean = true;
+  yScaleMin: number = 90000;  // Adjust based on your data
+  yScaleMax: number = 110000; // Adjust based on your data
 
   colorScheme : any = {
     domain: ['#5AA454', '#E44D25', '#CFC0BB', '#7aa3e5', '#a8385d', '#aae3f5']
   };
-  constructor(private route: ActivatedRoute, private api: ApiService){
-    Object.assign(this, { multi });
-  }
+  constructor(private route: ActivatedRoute, private api: ApiService){}
 
   onSelect(data: any[]): void {
     console.log('Item clicked', JSON.parse(JSON.stringify(data)));
@@ -50,14 +50,46 @@ export class ExploreBotComponent {
   
 
   ngOnInit() {
-    this.route.params.subscribe(params => {
-      const botId = params['id'];
-      // Fetch product details using this ID
-      this.api.getBot(botId).subscribe({
-        next: res => {
-          this.selected_bot = res;
-        },error: err => { console.error(err)}
-      });
+    this.route.params.pipe(
+      switchMap(params => {
+        const id = params['id'];
+        return this.api.getBot(id).pipe(
+          map(bot => ({
+            bot,
+            id  // Keep the id for the second call
+          }))
+        );
+      }),
+      switchMap(data => {
+        this.selected_bot = data.bot;
+        return this.api.getGraphData(data.id).pipe(
+          map((timeData: TimeData[]) => {
+            return [
+              {
+                name: 'actual',
+                series: timeData.map(data => ({
+                  name: data.timestamp,
+                  value: data.close
+                }))
+              },
+              {
+                name: 'predicted',
+                series: timeData.map(data => ({
+                  name: data.timestamp,
+                  value: data.predicted_price
+                }))
+              }
+            ];
+          })
+        );  // Use the same id here
+      })
+    ).subscribe({
+      next: (res) => {
+        this.multi = res;
+      },
+      error: (error) => {
+        console.error(error);
+      }
     });
   }
 }

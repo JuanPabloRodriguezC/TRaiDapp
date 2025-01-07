@@ -11,3 +11,9 @@ export interface Subscription {
   id: number;
   name: string;
 }
+
+export interface TimeData {
+  timestamp: string,
+  predicted_price: number,
+  close: number
+}

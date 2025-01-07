@@ -3,7 +3,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { TradingBot, Subscription } from '../client/Interfaces/bot';
+import { TradingBot, Subscription, TimeData } from '../client/Interfaces/bot';
+import { Time } from '@angular/common';
 
 @Injectable({
   providedIn: 'root'
@@ -52,5 +53,10 @@ export class ApiService {
   getSubscription(id: number): Observable<Subscription> {
     return this.http.get<Subscription>(`${this.apiUrl}/subscriptions/${id}`)
      .pipe(catchError(this.handleError));
+  }
+
+  getGraphData(id: number): Observable<TimeData[]> {
+    return this.http.get<TimeData[]>(`${this.apiUrl}/graphdata/${id}`)
+      .pipe(catchError(this.handleError));
   }
 }

@@ -26,6 +26,8 @@
             (select)="onSelect($event)"
             (activate)="onActivate($event)"
             (deactivate)="onDeactivate($event)"
+            [yScaleMin]="yScaleMin"
+            [yScaleMax]="yScaleMax"
             >
         </ngx-charts-line-chart>
     </div>
