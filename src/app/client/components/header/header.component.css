@@ -1,3 +1,51 @@
 .traid{
     background-color: #FFBF42;
+    
+}
+
+/* navbar.component.css */
+/* You can customize Bootstrap classes with additional CSS */
+
+/* Add custom styling to active navigation links */
+.navbar-nav .nav-link.active {
+    color: #FFBF42;
+    font-weight: 500;
+    border-bottom: 2px solid #f2d18f;
+  }
+  
+/* Hover effect for nav links */
+.navbar-nav .nav-link:hover {
+    color: #FFBF42;
+}
+
+/* Custom wallet button styling */
+.btn-primary {
+    background: linear-gradient(45deg, #8c73de 0%, #4D33A4 100%);
+    border-color: transparent;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, #8b69fb 0%, #4d31a9 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(183, 158, 236, 0.3);
+    border-color: transparent;
+}
+
+/* Custom wallet address styling */
+.wallet-address {
+    font-family: monospace;
+    letter-spacing: 0.5px;
+}
+
+/* Optional: customize the navbar's background */
+.navbar {
+    background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%) !important;
+}
+
+/* Add more spacing between navbar items on larger screens */
+@media (min-width: 992px) {
+    .navbar-nav .nav-item {
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
+    }
 }

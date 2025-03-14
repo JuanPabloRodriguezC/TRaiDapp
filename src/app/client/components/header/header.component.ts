@@ -1,26 +1,87 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-header',
-  imports: [RouterModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './header.component.html',
   styleUrl: './header.component.css'
 })
 export class HeaderComponent {
-  affiliateName: string = '';
+  isWalletConnected: boolean = false;
+  walletAddress: string = '';
+  isMenuOpen: boolean = false;
 
-  constructor(private router: Router) {}
+  constructor() { }
 
-  ngOnInit() {
-    // Aquí podrías obtener el nombre del administrador desde un servicio
-    // Por ahora usamos un valor de ejemplo
-    this.affiliateName = 'Admin Usuario';
+  ngOnInit(): void {
+    // Check if wallet was previously connected
+    this.checkWalletConnection();
   }
 
-  logout() {
-    // Aquí implementarías la lógica de cierre de sesión
-    localStorage.removeItem('adminToken');
-    this.router.navigate(['/']);
+  checkWalletConnection(): void {
+    // Here you would check local storage or your preferred state management solution
+    // to see if the user has a wallet connected from a previous session
+    const savedWalletAddress = localStorage.getItem('walletAddress');
+    if (savedWalletAddress) {
+      this.isWalletConnected = true;
+      this.walletAddress = savedWalletAddress;
+    }
+  }
+
+  async connectWallet(): Promise<void> {
+    try {
+      // Check if Ethereum provider exists (e.g., MetaMask)
+      if (window.ethereum) {
+        // Request account access
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        // Get the first account
+        this.walletAddress = accounts[0];
+        this.isWalletConnected = true;
+        
+        // Store the wallet address
+        localStorage.setItem('walletAddress', this.walletAddress);
+        
+        // Listen for account changes
+        window.ethereum.on('accountsChanged', (accounts: string[]) => {
+          if (accounts.length === 0) {
+            // User disconnected wallet
+            this.disconnectWallet();
+          } else {
+            // User switched accounts
+            this.walletAddress = accounts[0];
+            localStorage.setItem('walletAddress', this.walletAddress);
+          }
+        });
+      }else if (window.starknet?.isBraavos) { // Then check for StarkNet wallets
+        const accounts = await window.starknet.enable();
+        this.walletAddress = window.starknet.account.address;
+        this.isWalletConnected = true;
+        localStorage.setItem('walletAddress', this.walletAddress);
+        localStorage.setItem('walletType', 'starknet');
+        // Setup Braavos-specific event listeners...
+      }else {
+          alert('Please install MetaMask or another Web3 wallet!');
+        }
+      } catch (error) {
+        console.error('Error connecting wallet:', error);
+      }
+  }
+
+  disconnectWallet(): void {
+    this.isWalletConnected = false;
+    this.walletAddress = '';
+    localStorage.removeItem('walletAddress');
+  }
+
+  toggleMenu(): void {
+    this.isMenuOpen = !this.isMenuOpen;
+  }
+
+  formatWalletAddress(address: string): string {
+    if (!address) return '';
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   }
 }

@@ -6,9 +6,9 @@ import { AnalyticsComponent } from './client/pages/analytics/analytics.component
 import { ExploreBotComponent } from './client/pages/explore-bot/explore-bot.component';
 
 export const routes: Routes = [
-    {path: "mainpage", component:MainpageComponent},
-    {path: "browse", component:BrowseComponent},
+    {path: "", component:MainpageComponent},
+    {path: "catalog", component:BrowseComponent},
     {path: "settings", component:SettingsComponent},
-    {path: "analytics", component:AnalyticsComponent},
+    {path: "dashboard", component:AnalyticsComponent},
     {path: "explore-bot/:id", component:ExploreBotComponent}
 ];

@@ -1,54 +1,43 @@
-<nav class="navbar navbar-expand-lg navbar-dark traid">
-    <div class="container-fluid">
-      <!-- Logo y nombre -->
-      <a class="navbar-brand d-flex align-items-center" href="#">
-        <span>TRaiD</span>
-      </a>
-  
-      <!-- Toggle button para móvil -->
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar"
-              aria-controls="adminNavbar" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-  
-      <!-- Menú de navegación -->
-      <div class="collapse navbar-collapse" id="adminNavbar">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          <!-- Gestión de Administradores -->
-          <li class="nav-item">
-            <a class="nav-link" routerLink="/mainpage" routerLinkActive="active">
-              <i class="bi bi-menu-button-wide-fill"></i>Main Page
-            </a>
-          </li>
-          <!-- Otros elementos de navegación aquí -->
-        </ul>
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          <!-- Gestión de Administradores -->
-          <li class="nav-item">
-            <a class="nav-link" routerLink="/browse" routerLinkActive="active">
-              <i class="bi bi-robot"></i>Browse Bots
-            </a>
-          </li>
-          <!-- Otros elementos de navegación aquí -->
-        </ul>
-
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          <!-- Gestión de Administradores -->
-          <li class="nav-item">
-            <a class="nav-link" routerLink="/analytics" routerLinkActive="active">
-              <i class="bi bi-graph-up"></i>Analysis
-            </a>
-          </li>
-          <!-- Otros elementos de navegación aquí -->
-        </ul>
-  
-        <!-- Perfil y Logout -->
-        <div class="d-flex align-items-center">
-          <button class="btn btn-outline-light" (click)="logout()">
-            <i class="bi bi-box-arrow-right me-1"></i>Logout
-          </button>
+<!-- navbar.component.html with Bootstrap -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <!-- Logo/Brand -->
+    <a class="navbar-brand" routerLink="/">Web3 App</a>
+    
+    <!-- Mobile toggle button -->
+    <button class="navbar-toggler" type="button" (click)="toggleMenu()" 
+            [attr.aria-expanded]="isMenuOpen" aria-controls="navbarContent" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" [ngClass]="{'show': isMenuOpen}" id="navbarContent">
+      <!-- Nav Links - Using me-auto to push wallet button to the right -->
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item px-2">
+          <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Home</a>
+        </li>
+        <li class="nav-item px-2">
+          <a class="nav-link" routerLink="/catalog" routerLinkActive="active">Catalog</a>
+        </li>
+        <li class="nav-item px-2">
+          <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+        </li>
+        <li class="nav-item px-2">
+          <a class="nav-link" routerLink="/resources" routerLinkActive="active">Resources</a>
+        </li>
+      </ul>
+      
+      <!-- Wallet connection button -->
+      <div class="d-flex">
+        <button *ngIf="!isWalletConnected" class="btn btn-primary" (click)="connectWallet()">
+          Connect Wallet
+        </button>
+        <div *ngIf="isWalletConnected" class="wallet-info d-flex align-items-center p-2 bg-dark rounded">
+          <span class="wallet-address text-info me-2">{{ formatWalletAddress(walletAddress) }}</span>
+          <button class="btn btn-outline-danger btn-sm" (click)="disconnectWallet()">Disconnect</button>
         </div>
       </div>
     </div>
-  </nav>
-  
+  </div>
+</nav>
