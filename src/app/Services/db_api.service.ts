@@ -2,9 +2,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { TradingBot, Subscription, TimeData } from '../client/Interfaces/bot';
-import { Time } from '@angular/common';
 
 @Injectable({
   providedIn: 'root'
