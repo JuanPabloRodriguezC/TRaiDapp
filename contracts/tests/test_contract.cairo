@@ -1,47 +1,25 @@
-use starknet::ContractAddress;
+use snforge_std::{declare, ContractClassTrait, DeclareResultTrait, spy_events, EventSpyAssertionsTrait};
+use starknet::{ContractAddress, contract_address_const};
 
-use snforge_std::{declare, ContractClassTrait, DeclareResultTrait};
+use app::interfaces::IPragmaDataFetcher::{IPragmaDataFetcherDispatcher, IPragmaDataFetcherDispatcherTrait};
 
-use app::IHelloStarknetSafeDispatcher;
-use app::IHelloStarknetSafeDispatcherTrait;
-use app::IHelloStarknetDispatcher;
-use app::IHelloStarknetDispatcherTrait;
+fn deploy_pragma_data_fetcher(pragma_oracle_address: ContractAddress) -> ContractAddress {
+    let contract = declare("PragmaDataFetcher").unwrap().contract_class();
 
-fn deploy_contract(name: ByteArray) -> ContractAddress {
-    let contract = declare(name).unwrap().contract_class();
-    let (contract_address, _) = contract.deploy(@ArrayTrait::new()).unwrap();
+    let mut calldata = array![];
+    pragma_oracle_address.serialize(ref calldata);
+
+    let (contract_address, _) = contract.deploy(@calldata).unwrap();
+
     contract_address
 }
 
 #[test]
-fn test_increase_balance() {
-    let contract_address = deploy_contract("HelloStarknet");
+#[available_gas(200000000)]
+fn read_price(){
+    let pragma_oracle_address: ContractAddress = contract_address_const::<0x36031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a>();
+    let pdf: ContractAddress = deploy_pragma_data_fetcher(pragma_oracle_address);
+    let dispatcher = IPragmaDataFetcherDispatcher { contract_address: pdf };
+    let result = dispatcher.get_current_median();
 
-    let dispatcher = IHelloStarknetDispatcher { contract_address };
-
-    let balance_before = dispatcher.get_balance();
-    assert(balance_before == 0, 'Invalid balance');
-
-    dispatcher.increase_balance(42);
-
-    let balance_after = dispatcher.get_balance();
-    assert(balance_after == 42, 'Invalid balance');
-}
-
-#[test]
-#[feature("safe_dispatcher")]
-fn test_cannot_increase_balance_with_zero_value() {
-    let contract_address = deploy_contract("HelloStarknet");
-
-    let safe_dispatcher = IHelloStarknetSafeDispatcher { contract_address };
-
-    let balance_before = safe_dispatcher.get_balance().unwrap();
-    assert(balance_before == 0, 'Invalid balance');
-
-    match safe_dispatcher.increase_balance(0) {
-        Result::Ok(_) => core::panic_with_felt252('Should have panicked'),
-        Result::Err(panic_data) => {
-            assert(*panic_data.at(0) == 'Amount cannot be 0', *panic_data.at(0));
-        }
-    };
 }
