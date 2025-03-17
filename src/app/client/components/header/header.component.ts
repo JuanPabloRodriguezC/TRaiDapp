@@ -33,29 +33,7 @@ export class HeaderComponent {
   async connectWallet(): Promise<void> {
     try {
       // Check if Ethereum provider exists (e.g., MetaMask)
-      if (window.ethereum) {
-        // Request account access
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        
-        // Get the first account
-        this.walletAddress = accounts[0];
-        this.isWalletConnected = true;
-        
-        // Store the wallet address
-        localStorage.setItem('walletAddress', this.walletAddress);
-        
-        // Listen for account changes
-        window.ethereum.on('accountsChanged', (accounts: string[]) => {
-          if (accounts.length === 0) {
-            // User disconnected wallet
-            this.disconnectWallet();
-          } else {
-            // User switched accounts
-            this.walletAddress = accounts[0];
-            localStorage.setItem('walletAddress', this.walletAddress);
-          }
-        });
-      }else if (window.starknet?.isBraavos) { // Then check for StarkNet wallets
+      if (window.starknet?.isBraavos) { // Then check for StarkNet wallets
         const accounts = await window.starknet.enable();
         this.walletAddress = window.starknet.account.address;
         this.isWalletConnected = true;
