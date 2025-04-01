@@ -2,12 +2,12 @@
 #[starknet::contract]
 pub mod PragmaDataFetcher {
     use starknet::{
-        event::EventEmitter,
         storage::{StoragePointerReadAccess, StoragePointerWriteAccess},
         ContractAddress
     };
+    
     use pragma_lib::abi::{IPragmaABIDispatcher, IPragmaABIDispatcherTrait};
-    use pragma_lib::types::{DataType, AggregationMode, PragmaPricesResponse};
+    use pragma_lib::types::{DataType, PragmaPricesResponse};
     use crate::interfaces::IPragmaDataFetcher::{IPragmaDataFetcher};
     
     
@@ -16,7 +16,7 @@ pub mod PragmaDataFetcher {
     
     #[storage]
     struct Storage {
-        pragma_oracle_address: ContractAddress,
+        pragma_contract: ContractAddress,
     }
     // Events
     #[event]
@@ -43,16 +43,25 @@ pub mod PragmaDataFetcher {
 
     #[constructor]
     fn constructor(ref self: ContractState, pragma_oracle_address: ContractAddress) {
-        self.pragma_oracle_address.write(pragma_oracle_address);
+        self.pragma_contract.write(pragma_oracle_address);
     }
 
     #[abi(embed_v0)]
     impl PragmaDataFetcher of IPragmaDataFetcher<ContractState> {
         // Get current price for a token pair
-        fn get_current_median(self: @ContractState) -> u128 {
-            let oracle_dispatcher = IPragmaABIDispatcher{contract_address : self.pragma_oracle_address.read()};
-            let output : PragmaPricesResponse= oracle_dispatcher.get_data_median(DataType::SpotEntry('ETH/USD'));
+        fn get_asset_price(self: @ContractState, asset_id: felt252) -> u128 {
+            // Retrieve the oracle dispatcher
+            let oracle_dispatcher = IPragmaABIDispatcher {
+                contract_address: self.pragma_contract.read(),
+            };
+
+            // Call the Oracle contract, for a spot entry
+            let output: PragmaPricesResponse = oracle_dispatcher
+                .get_data_median(DataType::SpotEntry(asset_id));
+
             return output.price;
         }
+
     }
 }
+
