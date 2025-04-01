@@ -1,19 +1,25 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
+import { MatToolbar } from '@angular/material/toolbar';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+
+
 
 @Component({
   selector: 'app-header',
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, MatToolbar, MatMenuModule, MatIconModule, MatButtonModule],
   templateUrl: './header.component.html',
   styleUrl: './header.component.css'
 })
 export class HeaderComponent {
+  @Output() toggleSidenav = new EventEmitter<number>();
+
   isWalletConnected: boolean = false;
   walletAddress: string = '';
   isMenuOpen: boolean = false;
-
-  constructor() { }
 
   ngOnInit(): void {
     // Check if wallet was previously connected
@@ -56,6 +62,10 @@ export class HeaderComponent {
 
   toggleMenu(): void {
     this.isMenuOpen = !this.isMenuOpen;
+  }
+
+  onToggleSidenav(): void {
+    this.toggleSidenav.emit(5);
   }
 
   formatWalletAddress(address: string): string {

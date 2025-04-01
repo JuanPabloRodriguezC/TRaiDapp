@@ -1,43 +1,23 @@
-<!-- navbar.component.html with Bootstrap -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <div class="container">
-    <!-- Logo/Brand -->
-    <a class="navbar-brand" routerLink="/">Web3 App</a>
-    
-    <!-- Mobile toggle button -->
-    <button class="navbar-toggler" type="button" (click)="toggleMenu()" 
-            [attr.aria-expanded]="isMenuOpen" aria-controls="navbarContent" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    
-    <!-- Collapsible content -->
-    <div class="collapse navbar-collapse" [ngClass]="{'show': isMenuOpen}" id="navbarContent">
-      <!-- Nav Links - Using me-auto to push wallet button to the right -->
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item px-2">
-          <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Home</a>
-        </li>
-        <li class="nav-item px-2">
-          <a class="nav-link" routerLink="/catalog" routerLinkActive="active">Catalog</a>
-        </li>
-        <li class="nav-item px-2">
-          <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
-        </li>
-        <li class="nav-item px-2">
-          <a class="nav-link" routerLink="/resources" routerLinkActive="active">Resources</a>
-        </li>
-      </ul>
-      
-      <!-- Wallet connection button -->
-      <div class="d-flex">
-        <button *ngIf="!isWalletConnected" class="btn btn-primary" (click)="connectWallet()">
-          Connect Wallet
-        </button>
-        <div *ngIf="isWalletConnected" class="wallet-info d-flex align-items-center p-2 bg-dark rounded">
-          <span class="wallet-address text-info me-2">{{ formatWalletAddress(walletAddress) }}</span>
-          <button class="btn btn-outline-danger btn-sm" (click)="disconnectWallet()">Disconnect</button>
-        </div>
-      </div>
-    </div>
+<mat-toolbar color="primary">
+  <button mat-icon-button (click)="onToggleSidenav()">
+    <mat-icon>menu</mat-icon>
+  </button>
+  <span>TraidApp</span>
+  <span class="toolbar-spacer"></span>
+  
+  <!-- Navigation Links -->
+  <div class="desktop-nav">
+    <button mat-button routerLink="/browse">Resources</button>
+    <button mat-button routerLink="/dashboard">About</button>
+    <button mat-button routerLink="/settings">Settings</button>
   </div>
-</nav>
+  
+  <!-- User Menu -->
+  <button mat-icon-button [matMenuTriggerFor]="menu">
+    <mat-icon>account_circle</mat-icon>
+  </button>
+  <mat-menu #menu="matMenu">
+    <button mat-menu-item routerLink="/profile">Profile</button>
+    <button mat-menu-item>Logout</button>
+  </mat-menu>
+</mat-toolbar>
