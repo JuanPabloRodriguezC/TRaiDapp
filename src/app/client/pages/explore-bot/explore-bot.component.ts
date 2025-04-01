@@ -3,12 +3,11 @@ import { NgxChartsModule } from '@swimlane/ngx-charts';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../Services/db_api.service';
 import { TradingBot, TimeData } from '../../Interfaces/bot';
-import { HeaderComponent } from '../../components/header/header.component';
 import { map, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-explore-bot',
-  imports: [HeaderComponent, NgxChartsModule],
+  imports: [ NgxChartsModule],
   templateUrl: './explore-bot.component.html',
   styleUrl: './explore-bot.component.css'
 })
