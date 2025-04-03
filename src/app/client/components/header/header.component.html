@@ -7,17 +7,19 @@
   
   <!-- Navigation Links -->
   <div class="desktop-nav">
-    <button mat-button routerLink="/browse">Resources</button>
-    <button mat-button routerLink="/dashboard">About</button>
+    <button mat-button routerLink="/">Resources</button>
+    <button mat-button routerLink="/">About</button>
     <button mat-button routerLink="/settings">Settings</button>
   </div>
-  
-  <!-- User Menu -->
-  <button mat-icon-button [matMenuTriggerFor]="menu">
-    <mat-icon>account_circle</mat-icon>
-  </button>
-  <mat-menu #menu="matMenu">
-    <button mat-menu-item routerLink="/profile">Profile</button>
-    <button mat-menu-item>Logout</button>
-  </mat-menu>
+
+  <!-- Wallet-->
+  <div class="d-flex">
+    <button mat-stroked-button *ngIf="!isWalletConnected" class="accent" (click)="connectWallet()">
+      Connect Wallet
+    </button>
+    <div *ngIf="isWalletConnected" class="wallet-info">
+      <span class="wallet-address text-info me-2">{{ formatWalletAddress(walletAddress) }}</span>
+      <button mat-button (click)="disconnectWallet()">Disconnect</button>
+    </div>
+  </div>
 </mat-toolbar>
