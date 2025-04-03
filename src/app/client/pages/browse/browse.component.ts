@@ -16,7 +16,7 @@ interface BotWithSubscription extends TradingBot {
   selector: 'app-browse',
   imports: [CommonModule, MatCardModule, MatButton],
   templateUrl: './browse.component.html',
-  styleUrl: './browse.component.css'
+  styleUrl: './browse.component.scss'
 })
 export class BrowseComponent {
   cargandoProductos: boolean = false;
