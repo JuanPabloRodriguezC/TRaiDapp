@@ -1,16 +1,21 @@
 interface Window {
-    ethereum?: {
-      isMetaMask?: boolean;
-      request: (request: { method: string; params?: Array<any> }) => Promise<any>;
-      on: (eventName: string, callback: any) => void;
+  starknet?: {
+    isBraavos?: boolean;
+    isArgent?: boolean;
+    enable: () => Promise<string[]>;
+    account: {
+      address: string;
+      provider: any;
     };
-    starknet?: {
-        isBraavos?: boolean;
-        enable: () => Promise<string[]>;
-        account: {
-          address: string;
-          // Other Braavos specific properties
-        };
-        on: (eventName: string, callback: any) => void;
-      };
-  }
+    on: (eventName: string, callback: any) => void;
+    off: (eventName: string, callback: any) => void;
+    request?: (request: { type: string; params?: any }) => Promise<any>;
+    selectedAddress?: string;
+  };
+}
+
+interface WalletEventHandlers {
+  accountsChanged: (accounts: string[]) => void;
+  networkChanged: (network: any) => void;
+  [key: string]: any; // Allow for additional event handlers if needed
+}

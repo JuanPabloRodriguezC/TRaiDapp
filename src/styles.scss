@@ -1,0 +1,31 @@
+/* You can add global styles to this file, and also import other style files */
+@use '@angular/material' as mat;
+
+// Include the common styles
+@include mat.core();
+html {
+    color-scheme: light dark;
+    @include mat.theme((
+      color: mat.$cyan-palette,
+      typography: Roboto,
+      density: 0
+    ));
+  }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+body {
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+mat-sidenav-container{
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+@include mat.button-overrides((
+  container-color: orange,
+));

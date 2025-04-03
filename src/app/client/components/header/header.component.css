@@ -1,34 +1,11 @@
-.traid{
-    background-color: #FFBF42;
-    
+
+.toolbar-spacer {
+    flex: 1 1 auto;
 }
 
-/* navbar.component.css */
-/* You can customize Bootstrap classes with additional CSS */
-
-/* Add custom styling to active navigation links */
-.navbar-nav .nav-link.active {
-    color: #FFBF42;
-    font-weight: 500;
-    border-bottom: 2px solid #f2d18f;
-  }
-  
-/* Hover effect for nav links */
-.navbar-nav .nav-link:hover {
-    color: #FFBF42;
-}
-
-/* Custom wallet button styling */
-.btn-primary {
-    background: linear-gradient(45deg, #8c73de 0%, #4D33A4 100%);
-    border-color: transparent;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(45deg, #8b69fb 0%, #4d31a9 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(183, 158, 236, 0.3);
-    border-color: transparent;
+.desktop-nav {
+display: flex;
+align-items: center;
 }
 
 /* Custom wallet address styling */
@@ -37,15 +14,47 @@
     letter-spacing: 0.5px;
 }
 
-/* Optional: customize the navbar's background */
-.navbar {
-    background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%) !important;
+.button-examples {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
 }
 
-/* Add more spacing between navbar items on larger screens */
-@media (min-width: 992px) {
-    .navbar-nav .nav-item {
-        margin-left: 0.5rem;
-        margin-right: 0.5rem;
-    }
+.button-examples > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
+/* Container (similar to Bootstrap container) */
+.mat-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  
+  /* Grid layout (similar to Bootstrap grid) */
+  .mat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 960px) {
+    .mat-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .desktop-nav {
+      display: none;
+    }
+    
+    .mat-grid {
+      grid-template-columns: 1fr;
+    }
+  }

@@ -2,11 +2,11 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TradingBot, Subscription } from '../../Interfaces/bot';
 import { ApiService } from '../../../Services/db_api.service';
-import { HeaderComponent } from '../../components/header/header.component';
 import { forkJoin, Observable } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import { Router } from '@angular/router';
-
+import { MatCardModule } from '@angular/material/card';
+import { MatButton } from '@angular/material/button';
 
 interface BotWithSubscription extends TradingBot {
   subscriptionName: string;
@@ -14,9 +14,9 @@ interface BotWithSubscription extends TradingBot {
 
 @Component({
   selector: 'app-browse',
-  imports: [CommonModule,HeaderComponent],
+  imports: [CommonModule, MatCardModule, MatButton],
   templateUrl: './browse.component.html',
-  styleUrl: './browse.component.css'
+  styleUrl: './browse.component.scss'
 })
 export class BrowseComponent {
   cargandoProductos: boolean = false;

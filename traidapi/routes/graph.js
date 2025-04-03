@@ -21,12 +21,12 @@ export default function(pool){
             AND p.interval = kl.interval
             AND p.timestamp = kl.timestamp
             
-          WHERE p.model_name = $1`, [id]);
+          WHERE p.model_id = $1`, [id]);
         
         if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Prediction and real time data not found' });
+          return res.status(404).json({ error: 'Prediction and real time data not found' });
         }
-        res.json(result.rows[0]);
+        res.json(result.rows);
     } catch (err) {
       console.error('Database error:', err.message, '\nStack:', err.stack);
       res.status(500).json({ 

@@ -1,2 +1,11 @@
+<app-header (toggleSidenav)="sidenav.toggle()"></app-header>
+<mat-sidenav-container>
+    <mat-sidenav #sidenav mode="over" [opened]="true">
+        <app-sidenav></app-sidenav>
+    </mat-sidenav>
 
-<router-outlet />
+    <mat-sidenav-content>
+        <router-outlet></router-outlet>
+    </mat-sidenav-content>
+</mat-sidenav-container>
+
