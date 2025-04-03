@@ -1,0 +1,8 @@
+:host {
+  height: 100vh;
+  display: block;
+}
+
+mat-nav-list {
+  height: 100%;
+}
