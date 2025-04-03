@@ -1,7 +1,7 @@
 use snforge_std::{declare, ContractClassTrait, DeclareResultTrait};
 use starknet::{ContractAddress, contract_address_const};
 
-use app::interfaces::IPragmaDataFetcher::{IPragmaDataFetcherDispatcher, IPragmaDataFetcherDispatcherTrait};
+use app::interfaces::ITraidingModels::{ITraidingModelsMetricsDispatcher, ITraidingModelsMetricsDispatcherTrait};
 
 fn deploy_pragma_data_fetcher(pragma_oracle_address: ContractAddress) -> ContractAddress {
     let contract = declare("PragmaDataFetcher").unwrap().contract_class();
@@ -17,11 +17,11 @@ fn deploy_pragma_data_fetcher(pragma_oracle_address: ContractAddress) -> Contrac
 #[test]
 fn test_deployment() {
     // We'll use a mock contract address for testing deployment
-    let mock_pragma_address = contract_address_const::<1>();
-    let contract_address = deploy_pragma_data_fetcher(mock_pragma_address);
+    let mock_pragma_address: ContractAddress = contract_address_const::<1>();
+    let contract_address: ContractAddress = deploy_pragma_data_fetcher(mock_pragma_address);
     
     // Just check that deployment works
-    let dispatcher = IPragmaDataFetcherDispatcher{contract_address};
+    let dispatcher = ITraidingModelsMetricsDispatcher{contract_address: contract_address};
     assert(dispatcher.contract_address != contract_address_const::<0>(), 'Contract not deployed');
 }
 
@@ -35,7 +35,7 @@ fn test_get_asset_price_on_fork() {
     let pragma_address = contract_address_const::<0x36031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a>();
     let contract_address = deploy_pragma_data_fetcher(pragma_address);
     
-    let dispatcher = IPragmaDataFetcherDispatcher{contract_address};
+    let dispatcher = ITraidingModelsMetricsDispatcher{contract_address};
     
     // Using the ETH_USD constant from PragmaDataFetcher module
     let asset_id: felt252 = 19514442401534788; // ETH_USD
