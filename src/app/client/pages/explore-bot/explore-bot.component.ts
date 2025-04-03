@@ -16,6 +16,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 
@@ -36,6 +38,8 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
     MatDatepickerModule,
     MatNativeDateModule,
     MatDividerModule,
+    MatIconModule,
+    MatTooltipModule,
     CommonModule
   ],
   templateUrl: './explore-bot.component.html',
@@ -87,7 +91,7 @@ export class ExploreBotComponent implements OnInit {
     // Initialize form
     this.tradeForm = this.fb.group({
       percentAssets: [5, [Validators.required, Validators.min(1), Validators.max(100)]],
-      percentThreshold: [10, [Validators.required, Validators.min(1), Validators.max(100)]],
+      percentThreshold: [0.10, [Validators.required, Validators.min(1), Validators.max(100)]],
       walletAddress: ['', Validators.required],
       tradingPeriod: [new Date()],
       amount: [100, [Validators.required, Validators.min(10)]]

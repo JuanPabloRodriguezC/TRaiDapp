@@ -38,7 +38,10 @@
                         <form [formGroup]="tradeForm" class="trade-form">
                             <!-- Asset Percentage Slider -->
                             <div class="form-field">
-                                <label>Percentage of Assets: {{tradeForm.get('percentAssets')?.value}}%</label>
+                                <label>
+                                    Percentage of Assets: {{tradeForm.get('percentAssets')?.value}}%
+                                    <mat-icon aria-hidden="false" aria-label="Example home icon" fontIcon="help" matTooltip="Percentage your wallet token amount to trade."></mat-icon>
+                                </label>
                                 <mat-slider 
                                     min="1" 
                                     max="100" 
@@ -50,13 +53,18 @@
                                 </mat-slider>
                             </div>
 
-                            <!-- Asset Percentage Slider -->
+                            <!-- Threshold Slider -->
                             <div class="form-field">
-                                <label>Trading Threshold: {{tradeForm.get('percentThreshold')?.value}}%</label>
+                                <label>
+                                    Trading Threshold: {{tradeForm.get('percentThreshold')?.value}}
+                                    <mat-icon aria-hidden="false" aria-label="Example home icon" fontIcon="help" matTooltip="Minimum change that is a fraction of current price to trigger a trade "></mat-icon>
+                                </label>
+                                
+
                                 <mat-slider 
                                     min="0" 
-                                    max="100" 
-                                    step="1" 
+                                    max="1" 
+                                    step="0.01" 
                                     discrete 
                                     showTickMarks
                                     class="full-width">
