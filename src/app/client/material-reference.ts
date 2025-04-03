@@ -42,7 +42,7 @@ import { RouterLink } from '@angular/router';
       <!-- Navigation Links -->
       <div class="desktop-nav">
         <button mat-button routerLink="/browse">Browse</button>
-        <button mat-button routerLink="/analytics">Analytics</button>
+        <button mat-button routerLink="/dashboard">Analytics</button>
         <button mat-button routerLink="/settings">Settings</button>
       </div>
       

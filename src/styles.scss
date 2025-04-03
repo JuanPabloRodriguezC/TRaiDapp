@@ -14,6 +14,11 @@ html {
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 
 body {
-    background: var(--mat-sys-surface);
-    color: var(--mat-sys-on-surface);
-  }
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+
+@include mat.button-overrides((
+  container-color: orange,
+));
