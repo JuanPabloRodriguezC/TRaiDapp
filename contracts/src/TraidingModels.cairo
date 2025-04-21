@@ -10,17 +10,16 @@ pub mod TraidingModels {
     use pragma_lib::types::{DataType, PragmaPricesResponse};
     use crate::interfaces::ITraidingModels::{ITraidingModelsMetrics, ITraidingModelsOrders};
     use crate::interfaces::IERC20::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use crate::utils::events;
     use crate::utils::types::{Metrics};
 
     #[storage]
     struct Storage {
         pragma_contract: ContractAddress,
         traid_wallet: ContractAddress,
-        traid_models_stats: Map<u64, Map<felt252, Metrics>>,
+        traid_models_metrics: Map<u64, Map<felt252, Metrics>>,
         model_authorization: Map<ContractAddress, Map<u64, bool>>,
         model_fees: Map<u64, u128>,
-        user_balances: Map<ContractAddress, u128>,
+        user_balances: Map<ContractAddress, u256>,
     }    
 
     #[constructor]
@@ -44,41 +43,42 @@ pub mod TraidingModels {
             return output.price;
         }
 
-        fn update_model_predictions(ref self: ContractState, model_id: u64, asset_id: felt252, prediction: felt252) -> bool{
+        fn update_model_predictions(ref self: ContractState, model_id: u64, asset_id: felt252, prediction: u128) -> bool{
             let caller: ContractAddress = get_caller_address();
             if caller != contract_address_const::<0x1234567890abcdef1234567890abcdef12345678>() {
                 return false;
             }
 
             // Update the model predictions
-            self.traid_models_stats.entry(model_id).entry(asset_id).prediction.write(prediction);
+            self.traid_models_metrics.entry(model_id).entry(asset_id).prediction.write(prediction);
 
             return true;
 
         }
 
-        fn get_model_error(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
-            let error = self.traid_models_stats.entry(model_id).entry(asset_id).error.read();
-            return error;
+        fn get_model_error(ref self: ContractState, model_id: u64, asset_id: felt252) -> (u128, u128) {
+            let mae = self.traid_models_metrics.entry(model_id).entry(asset_id).error.mae.read();
+            let mse = self.traid_models_metrics.entry(model_id).entry(asset_id).error.mse.read();
+            return (mae, mse);
         }
 
         fn get_model_roi(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
-            let roi = self.traid_models_stats.entry(model_id).entry(asset_id).roi.read();
+            let roi = self.traid_models_metrics.entry(model_id).entry(asset_id).roi.read();
             return roi;
         }
 
         fn get_model_sharpe_ratio(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
-            let sharpe_ratio = self.traid_models_stats.entry(model_id).entry(asset_id).sharpe_ratio.read();
+            let sharpe_ratio = self.traid_models_metrics.entry(model_id).entry(asset_id).sharpe_ratio.read();
             return sharpe_ratio;
         }
 
         fn get_model_max_drawdown(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
-            let max_drawdown = self.traid_models_stats.entry(model_id).entry(asset_id).max_drawdown.read();
+            let max_drawdown = self.traid_models_metrics.entry(model_id).entry(asset_id).max_drawdown.read();
             return max_drawdown;
         }
 
         fn get_model_winning_ratio(ref self: ContractState, model_id: u64, asset_id: felt252) -> u8 {
-            let winning_ratio = self.traid_models_stats.entry(model_id).entry(asset_id).winning_ratio.read();
+            let winning_ratio = self.traid_models_metrics.entry(model_id).entry(asset_id).winning_ratio.read();
             return winning_ratio;
         }  
 
@@ -88,12 +88,19 @@ pub mod TraidingModels {
     #[abi(embed_v0)]
     impl TraidingModelsOrders of ITraidingModelsOrders<ContractState> {
         
-        fn deposit(ref self: ContractState, asset_id: felt252, amount: u128) -> bool {
-            // Placeholder for deposit logic
-            return true;
-        }
+        fn deposit(ref self: ContractState, asset_id: ContractAddress, amount: u256) -> bool {
+            let caller = get_caller_address();
+            let erc20_dispatcher = IERC20Dispatcher { contract_address: caller };
+            let deposit: bool = erc20_dispatcher.transfer(asset_id, amount);
+            if deposit {
+                // Update the user balance
+                let current_balance = self.user_balances.entry(caller).read();
+                self.user_balances.entry(caller).write(current_balance + amount);
+            }
+            return deposit;
+        }   
         
-        fn withdraw(ref self: ContractState, asset_id: felt252, amount: u128) -> bool {
+        fn withdraw(ref self: ContractState, asset_id: ContractAddress, amount: u256) -> bool {
             // Placeholder for withdraw logic
             return true;
         }
@@ -118,7 +125,7 @@ pub mod TraidingModels {
             return 0;
         }
         
-        fn calculate_model_fees(ref self: ContractState, model_id: u64, asset_id: felt252) -> u128 {
+        fn calculate_model_fees(ref self: ContractState, model_id: u64, asset_id: ContractAddress) -> u128 {
             // Placeholder for calculating model fees logic
             return 0;
         }
@@ -127,10 +134,38 @@ pub mod TraidingModels {
     #[generate_trait]
     impl TraidInternalCalculations of ITraidInternalCalculations {
         
-        fn calculate_model_error(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
+        fn calculate_model_error(ref self: ContractState, model_id: u64, asset_id: felt252) -> () {
             
-            let difference: self.pr
+            let model_metrics = self.traid_models_metrics.entry(model_id).entry(asset_id);
+            let actual: u128 = self.get_asset_price(asset_id);
+            let mae : u128 = model_metrics.error.mae.read();
+            let mse: u128 = model_metrics.error.mse.read();
+            let prediction_count: u64 = model_metrics.error.prediction_count.read();
+            let prediction: u128 = model_metrics.prediction.read();
+
+            // Calculate error
+            let error = if actual > prediction {
+                actual - prediction
+            } else {
+                prediction - actual
+            };
+
+            let squared_error = error * error;
+            
+            if prediction_count == 0 {
+                model_metrics.error.mae.write(error);
+                model_metrics.error.mse.write(squared_error);
+            } else{
+                // Update running averages
+                let new_mae = ((mae * prediction_count.into()) + error) / (prediction_count.into() + 1);
+                let new_mse = ((mse * prediction_count.into()) + squared_error) / (prediction_count.into() + 1);
+                model_metrics.error.mae.write(new_mae);
+                model_metrics.error.mse.write(new_mse);
+            }
+            model_metrics.error.prediction_count.write(prediction_count + 1);
         }
+
+
         fn calculate_model_roi(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
             // Placeholder for ROI calculation logic
             return 0;
