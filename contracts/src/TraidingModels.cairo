@@ -50,7 +50,9 @@ pub mod TraidingModels {
             }
 
             // Update the model predictions
-            self.traid_models_metrics.entry(model_id).entry(asset_id).prediction.write(prediction);
+            let precision = self.traid_models_metrics.entry(model_id).entry(asset_id).error.precision.read();
+            let scaled_prediction = prediction * precision;
+            self.traid_models_metrics.entry(model_id).entry(asset_id).prediction.write(scaled_prediction);
 
             return true;
 
@@ -62,9 +64,10 @@ pub mod TraidingModels {
             return (mae, mse);
         }
 
-        fn get_model_roi(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
-            let roi = self.traid_models_metrics.entry(model_id).entry(asset_id).roi.read();
-            return roi;
+        fn get_model_roi(ref self: ContractState, model_id: u64, asset_id: felt252) -> (u128, bool) {
+            let roi = self.traid_models_metrics.entry(model_id).entry(asset_id).roi.value.read();
+            let flag = self.traid_models_metrics.entry(model_id).entry(asset_id).roi.is_negative.read();
+            return (roi, flag);
         }
 
         fn get_model_sharpe_ratio(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
@@ -165,13 +168,24 @@ pub mod TraidingModels {
             model_metrics.error.prediction_count.write(prediction_count + 1);
         }
 
+        fn calculate_model_roi(ref self: ContractState, model_id: u64, asset_id: felt252) -> () {
+            let initial = self.traid_models_metrics.entry(model_id).entry(asset_id).roi.initial.read();
+            let current = self.get_asset_price(asset_id) * initial;
+            let mut roi = self.traid_models_metrics.entry(model_id).entry(asset_id).roi.value.read();
+            
 
-        fn calculate_model_roi(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
-            // Placeholder for ROI calculation logic
-            return 0;
+            if current > initial {
+                roi = (current - initial) / initial
+            } else {
+                roi = (initial - current) / initial;
+                self.traid_models_metrics.entry(model_id).entry(asset_id).roi.is_negative.write(true);
+            }
+            
+            self.traid_models_metrics.entry(model_id).entry(asset_id).roi.value.write(roi);
         }
+
         fn calculate_model_sharpe_ratio(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
-            // Placeholder for Sharpe ratio calculation logic
+            
             return 0;
         }
         fn calculate_model_max_drawdown(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
