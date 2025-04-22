@@ -19,7 +19,7 @@ pub mod TraidingModels {
         traid_models_metrics: Map<u64, Map<felt252, Metrics>>,
         model_authorization: Map<ContractAddress, Map<u64, bool>>,
         model_fees: Map<u64, u128>,
-        user_balances: Map<ContractAddress, u256>,
+        user_balances: Map<ContractAddress, Map<u64, u256>>,
     }    
 
     #[constructor]
@@ -58,29 +58,40 @@ pub mod TraidingModels {
 
         }
 
-        fn get_model_error(ref self: ContractState, model_id: u64, asset_id: felt252) -> (u128, u128) {
+        fn get_portfolio_value(self: @ContractState, asset_id: felt252, amount: u128) -> u128 {
+            let price = self.get_asset_price(asset_id);
+            price * amount
+        }
+
+        fn get_bot_portfolio_value(self: @ContractState, asset_id: felt252, model_id: u64) -> u128 {
+            let amount = self.traid_models_metrics.entry(model_id).entry(asset_id).portfolio_value.read();
+            let price = self.get_asset_price(asset_id);
+            price * amount
+        }
+
+        fn get_model_error(self: @ContractState, model_id: u64, asset_id: felt252) -> (u128, u128) {
             let mae = self.traid_models_metrics.entry(model_id).entry(asset_id).error.mae.read();
             let mse = self.traid_models_metrics.entry(model_id).entry(asset_id).error.mse.read();
             return (mae, mse);
         }
 
-        fn get_model_roi(ref self: ContractState, model_id: u64, asset_id: felt252) -> (u128, bool) {
+        fn get_model_roi(self: @ContractState, model_id: u64, asset_id: felt252) -> (u128, bool) {
             let roi = self.traid_models_metrics.entry(model_id).entry(asset_id).roi.value.read();
             let flag = self.traid_models_metrics.entry(model_id).entry(asset_id).roi.is_negative.read();
             return (roi, flag);
         }
 
-        fn get_model_sharpe_ratio(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
+        fn get_model_sharpe_ratio(self: @ContractState, model_id: u64, asset_id: felt252) -> felt252 {
             let sharpe_ratio = self.traid_models_metrics.entry(model_id).entry(asset_id).sharpe_ratio.read();
             return sharpe_ratio;
         }
 
-        fn get_model_max_drawdown(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
-            let max_drawdown = self.traid_models_metrics.entry(model_id).entry(asset_id).max_drawdown.read();
+        fn get_model_max_drawdown(self: @ContractState, model_id: u64, asset_id: felt252) -> u128 {
+            let max_drawdown = self.traid_models_metrics.entry(model_id).entry(asset_id).max_drawdown.max_drawdown.read();
             return max_drawdown;
         }
 
-        fn get_model_winning_ratio(ref self: ContractState, model_id: u64, asset_id: felt252) -> u8 {
+        fn get_model_winning_ratio(self: @ContractState, model_id: u64, asset_id: felt252) -> u8 {
             let winning_ratio = self.traid_models_metrics.entry(model_id).entry(asset_id).winning_ratio.read();
             return winning_ratio;
         }  
@@ -91,14 +102,14 @@ pub mod TraidingModels {
     #[abi(embed_v0)]
     impl TraidingModelsOrders of ITraidingModelsOrders<ContractState> {
         
-        fn deposit(ref self: ContractState, asset_id: ContractAddress, amount: u256) -> bool {
+        fn deposit(ref self: ContractState, asset_id: ContractAddress, model_id: u64, amount: u256) -> bool {
             let caller = get_caller_address();
             let erc20_dispatcher = IERC20Dispatcher { contract_address: caller };
             let deposit: bool = erc20_dispatcher.transfer(asset_id, amount);
             if deposit {
                 // Update the user balance
-                let current_balance = self.user_balances.entry(caller).read();
-                self.user_balances.entry(caller).write(current_balance + amount);
+                let current_balance = self.user_balances.entry(caller).entry(model_id).read();
+                self.user_balances.entry(caller).entry(model_id).write(current_balance + amount);
             }
             return deposit;
         }   
@@ -188,10 +199,29 @@ pub mod TraidingModels {
             
             return 0;
         }
-        fn calculate_model_max_drawdown(ref self: ContractState, model_id: u64, asset_id: felt252) -> felt252 {
-            // Placeholder for max drawdown calculation logic
-            return 0;
+
+        fn calculate_model_max_drawdown(ref self: ContractState, model_id: u64, asset_id: felt252) -> () {
+            let metrics = self.traid_models_metrics.entry(model_id).entry(asset_id);
+            let current_peak = metrics.max_drawdown.historical_peak.read();
+            let current_value = self.get_bot_portfolio_value(asset_id, model_id);
+            
+            
+            
+            if current_value > current_peak {
+                // New all-time high - update peak
+                metrics.max_drawdown.historical_peak.write(current_value);
+            } else if current_peak > 0 {
+                // Calculate current drawdown
+                let drawdown = ((current_peak - current_value) * 100) / current_peak;
+                
+                // Update max drawdown if this drawdown is larger
+                let current_max_dd = metrics.max_drawdown.max_drawdown.read();
+                if drawdown > current_max_dd {
+                    metrics.max_drawdown.max_drawdown.write(drawdown);
+                }
+            }
         }
+
         fn calculate_model_winning_ratio(ref self: ContractState, model_id: u64, asset_id: felt252) -> u8 {
             // Placeholder for winning ratio calculation logic
             return 0;
