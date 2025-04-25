@@ -14,6 +14,7 @@ pub mod TraidingModels {
 
     #[storage]
     struct Storage {
+        wallet: ContractAddress,
         pragma_contract: ContractAddress,
         traid_wallet: ContractAddress,
         traid_models_metrics: Map<u64, Map<felt252, Metrics>>,
@@ -25,6 +26,7 @@ pub mod TraidingModels {
     #[constructor]
     fn constructor(ref self: ContractState, pragma_oracle_address: ContractAddress) {
         self.pragma_contract.write(pragma_oracle_address);
+        self.wallet.write(contract_address_const::<0x02a518A1d7709A0f2ba57128F1Bc2d5C56B630e55A7cf3faD79671a860794e0F>());
     }
 
     #[abi(embed_v0)]
@@ -101,11 +103,10 @@ pub mod TraidingModels {
 
     #[abi(embed_v0)]
     impl TraidingModelsOrders of ITraidingModelsOrders<ContractState> {
-        
         fn deposit(ref self: ContractState, asset_id: ContractAddress, model_id: u64, amount: u256) -> bool {
             let caller = get_caller_address();
-            let erc20_dispatcher = IERC20Dispatcher { contract_address: caller };
-            let deposit: bool = erc20_dispatcher.transfer(asset_id, amount);
+            let erc20_dispatcher = IERC20Dispatcher { contract_address: asset_id};
+            let deposit: bool = erc20_dispatcher.transfer_from(caller, self.wallet.read(), amount);
             if deposit {
                 // Update the user balance
                 let current_balance = self.user_balances.entry(caller).entry(model_id).read();
@@ -114,34 +115,43 @@ pub mod TraidingModels {
             return deposit;
         }   
         
-        fn withdraw(ref self: ContractState, asset_id: ContractAddress, amount: u256) -> bool {
-            // Placeholder for withdraw logic
-            return true;
+        fn withdraw(ref self: ContractState, asset_id: ContractAddress,  model_id: u64, amount: u256) -> bool {
+            let caller = get_caller_address();
+            let erc20_dispatcher = IERC20Dispatcher { contract_address: asset_id };
+            let deposit: bool = erc20_dispatcher.transfer_from(self.wallet.read(), caller, amount);
+            if deposit {
+                // Update the user balance
+                let current_balance = self.user_balances.entry(caller).entry(model_id).read();
+                self.user_balances.entry(caller).entry(model_id).write(current_balance - amount);
+            }
+            return deposit;
         }
         
         fn authorize_model(ref self: ContractState, model_id: u64, user_address: ContractAddress) -> bool {
-            // Placeholder for authorization logic
+            self.model_authorization.entry(user_address).entry(model_id).write(true);
             return true;
         }
         
         fn deauthorize_model(ref self: ContractState, model_id: u64, user_address: ContractAddress) -> bool {
-            // Placeholder for deauthorization logic
+            self.model_authorization.entry(user_address).entry(model_id).write(false);
             return true;
         }
         
         fn is_authorized_model(ref self: ContractState, model_id: u64, user_address: ContractAddress) -> bool {
-            // Placeholder for authorization check logic
-            return true;
+            self.model_authorization.entry(user_address).entry(model_id).read()
         }
        
-        fn get_user_balance(ref self: ContractState, user_address: ContractAddress) -> u128 {
-            // Placeholder for getting user balance logic
-            return 0;
+        fn get_user_balance(self: @ContractState, model_id: u64, user_address: ContractAddress) -> u256 {
+            self.user_balances.entry(user_address).entry(model_id).read()
         }
         
         fn calculate_model_fees(ref self: ContractState, model_id: u64, asset_id: ContractAddress) -> u128 {
             // Placeholder for calculating model fees logic
             return 0;
+        }
+
+        fn trigger_swap(ref self: ContractState, model_id: u64, asset_id: ContractAddress, amount: u256) -> bool {
+            return false;
         }
     }
 
@@ -204,8 +214,6 @@ pub mod TraidingModels {
             let metrics = self.traid_models_metrics.entry(model_id).entry(asset_id);
             let current_peak = metrics.max_drawdown.historical_peak.read();
             let current_value = self.get_bot_portfolio_value(asset_id, model_id);
-            
-            
             
             if current_value > current_peak {
                 // New all-time high - update peak

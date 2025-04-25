@@ -16,10 +16,11 @@ pub trait ITraidingModelsMetrics<TContractState> {
 #[starknet::interface]
 pub trait ITraidingModelsOrders<TContractState> {
     fn deposit(ref self: TContractState, asset_id: ContractAddress, model_id: u64, amount: u256) -> bool;
-    fn withdraw(ref self: TContractState, asset_id: ContractAddress, amount: u256) -> bool;
+    fn withdraw(ref self: TContractState, asset_id: ContractAddress, model_id: u64, amount: u256) -> bool;
     fn authorize_model(ref self: TContractState, model_id: u64, user_address: ContractAddress) -> bool;
     fn deauthorize_model(ref self: TContractState, model_id: u64, user_address: ContractAddress) -> bool;
     fn is_authorized_model(ref self: TContractState, model_id: u64, user_address: ContractAddress) -> bool;
-    fn get_user_balance(ref self: TContractState, user_address: ContractAddress) -> u128;
+    fn get_user_balance(self: @TContractState, model_id: u64, user_address: ContractAddress) -> u256;
     fn calculate_model_fees(ref self: TContractState, model_id: u64, asset_id: ContractAddress) -> u128;
+    fn trigger_swap(ref self: TContractState, model_id: u64, asset_id: ContractAddress, amount: u256) -> bool;
 }
