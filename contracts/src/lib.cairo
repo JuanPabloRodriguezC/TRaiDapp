@@ -1,6 +1,7 @@
 pub mod interfaces{
     pub mod ITraidingModels;
     pub mod IERC20;
+    pub mod IJediSwap;
 }
 
 pub mod utils{
