@@ -6,7 +6,7 @@ pub struct Metrics{
     pub roi: ROIMetrics,
     pub sharpe_ratio: felt252,
     pub max_drawdown: DrawdownMetrics,
-    pub winning_ratio: u8,
+    pub winning_ratio: WinningRatioMetrics,
 }
 
 #[derive(Drop, Serde, starknet::Store)]
@@ -30,5 +30,13 @@ pub struct DrawdownMetrics{
     pub historical_peak: u128,       // Highest portfolio value seen so far
     pub current_value: u128,         // Current portfolio value
     pub max_drawdown: u128,          // Maximum drawdown seen so far (as percentage × PRECISION)
+    pub PRECISION: u128,             // Fixed-point precision factor
+}
+
+#[derive(Drop, Serde, starknet::Store)]
+pub struct WinningRatioMetrics{
+    pub wins: u128,
+    pub losses: u128,
+    pub ratio: u128,
     pub PRECISION: u128,             // Fixed-point precision factor
 }
