@@ -40,3 +40,9 @@ pub struct WinningRatioMetrics{
     pub ratio: u128,
     pub PRECISION: u128,             // Fixed-point precision factor
 }
+
+#[derive(Drop, Serde, starknet::Store)]
+pub struct TradingParameters{
+    pub threshold_percentage: u32,
+    pub expiration_timestamp: u64,
+}
