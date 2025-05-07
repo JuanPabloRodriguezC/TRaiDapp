@@ -7,15 +7,15 @@ struct i256 {
 }
 
 #[derive(Drop, Serde)]
-struct ExactInputSingleParams {
-    token_in: ContractAddress,
-    token_out: ContractAddress,
-    fee: u32,
-    recipient: ContractAddress,
-    deadline: u64,
-    amount_in: u256,
-    amount_out_minimum: u256,
-    sqrt_price_limit_X96: u256
+pub struct ExactInputSingleParams {
+    pub token_in: ContractAddress,
+    pub token_out: ContractAddress,
+    pub fee: u32,
+    pub recipient: ContractAddress,
+    pub deadline: u64,
+    pub amount_in: u256,
+    pub amount_out_minimum: u256,
+    pub sqrt_price_limit_X96: u256
 }
 
 #[derive(Drop, Serde)]

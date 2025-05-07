@@ -43,6 +43,6 @@ pub struct WinningRatioMetrics{
 
 #[derive(Drop, Serde, starknet::Store)]
 pub struct TradingParameters{
-    pub threshold_percentage: u32,
+    pub threshold_percentage: u128,
     pub expiration_timestamp: u64,
 }
