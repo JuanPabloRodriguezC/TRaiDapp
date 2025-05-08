@@ -155,11 +155,25 @@ use starknet::{
             let caller = get_caller_address();
             assert(caller == self.admin_address.read(), 'Only admin allowed');
         }
+
         // verifies that the caller is the model owner
         fn only_authorized_bot(self: @ContractState, model_id: u64) -> () {
             let caller = get_caller_address();
             let is_authorized = self.is_user_authorized(model_id, caller);
             assert(is_authorized, 'Model not authorized');
+        }
+
+        fn find_user_index(self: @ContractState, model_id: u64, user_address: ContractAddress) -> u32 {
+            let user_count = self.model_user_count.entry(model_id).read();
+            let mut index = 0;
+            for i in 0..user_count {
+                let user: ContractAddress = self.model_users.entry(model_id).entry(i).read();
+                if user == user_address {
+                    index = i;
+                    break;
+                }
+            };
+            return index;
         }
 
         /// Deposit funds into the contract
@@ -320,8 +334,10 @@ use starknet::{
         }
 
         fn authorize_user(ref self: ContractState, model_id: u64, user_address: ContractAddress) -> () {
+
             self.user_model_authorization.entry(user_address).entry(model_id).write(true);
             let count = self.model_user_count.entry(model_id).read();
+            self.model_users.entry(model_id).entry(count).write(user_address);
             self.model_user_count.entry(model_id).write(count + 1);
             self.emit(
                 BotAuthorized{
@@ -330,10 +346,26 @@ use starknet::{
                 }
             );
         }
+
+        /// Replaces the deauthorized user with the last one
+        /// @param model_id: The model id from which to deauthorize user
+        /// @param user_address: The user address to deauthorize
+        /// @return: none
         fn deauthorize_user(ref self: ContractState, model_id: u64, user_address: ContractAddress) -> () {
             self.user_model_authorization.entry(user_address).entry(model_id).write(false);
             let count = self.model_user_count.entry(model_id).read();
+            
+
+            let user_index = self.find_user_index(model_id, user_address);
+            if (user_index != count - 1) {
+                let last_user = self.model_users.entry(model_id).entry(count - 1).read();
+                self.model_users.entry(model_id).entry(user_index).write(last_user);
+                
+            }
+
             self.model_user_count.entry(model_id).write(count - 1);
+
+            return ();
         }
 
         fn is_user_authorized(self: @ContractState, model_id: u64, user_address: ContractAddress) -> bool {

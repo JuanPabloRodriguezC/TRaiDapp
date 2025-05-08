@@ -15,6 +15,7 @@ pub trait ITraidingModelsMetrics<TContractState> {
 pub trait ITraidingModelsOrders<TContractState> {
     fn only_admin(self: @TContractState) -> ();
     fn only_authorized_bot(self: @TContractState, model_id: u64) -> ();
+    fn find_user_index(self: @TContractState, model_id: u64, user_address: ContractAddress) -> u32;
     fn deposit(ref self: TContractState, token_address: ContractAddress, model_id: u64, amount: u256,
                     threshold_percentage: u128, expiration_days: u64) -> bool;
     fn withdraw(ref self: TContractState, token_address: ContractAddress, model_id: u64, amount: u256, expiration_days: u64) -> bool;
