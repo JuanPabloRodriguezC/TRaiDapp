@@ -17,8 +17,7 @@ pub trait ITraidingModelsOrders<TContractState> {
     fn only_authorized_bot(self: @TContractState, model_id: u64) -> ();
     fn deposit(ref self: TContractState, token_address: ContractAddress, model_id: u64, amount: u256,
                     threshold_percentage: u128, expiration_days: u64) -> bool;
-    fn withdraw(ref self: TContractState, token_address: ContractAddress, model_id: u64, amount: u256,
-                    threshold_percentage: u32, expiration_days: u64) -> bool;
+    fn withdraw(ref self: TContractState, token_address: ContractAddress, model_id: u64, amount: u256, expiration_days: u64) -> bool;
     fn update_trading_parameters(ref self: TContractState, model_id: u64, threshold_percentage: u128, expiration_days: u64) -> ();
     fn get_user_balance(self: @TContractState, model_id: u64, user_address: ContractAddress) -> u256;
 
@@ -38,6 +37,4 @@ pub trait ITraidingModelsOrders<TContractState> {
                                     current_price: u128, predicted_price: u128, token_address: ContractAddress) -> ();
     fn process_expirations_recursively(ref self: TContractState, model_id: u64) -> ();
     fn withdraw_expired(ref self: TContractState, model_id: u64, token_address: ContractAddress) -> ();
-
-    fn abs_diff(self: @TContractState, a: u128, b: u128) -> u128;
 }
