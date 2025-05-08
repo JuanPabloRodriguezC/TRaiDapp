@@ -12,6 +12,7 @@ use starknet::{
     use crate::interfaces::ITraidingModels::{ITraidingModelsMetrics, ITraidingModelsOrders};
     use crate::interfaces::IERC20::{IERC20Dispatcher, IERC20DispatcherTrait};
     use crate::interfaces::IJediSwap::{ ExactInputSingleParams, IJediSwapV2SwapRouterDispatcher, IJediSwapV2SwapRouterDispatcherTrait};
+    use crate::utils::functions::abs_diff;
     use crate::utils::types::{Metrics, TradingParameters};
     use crate::utils::events::{BotAuthorized, FundsDeposited, FundsWithdrawn, ModelUpdated, TradeExecuted,
                                 ModelMetricsUpdated, TradingParametersSet};
@@ -110,23 +111,35 @@ use starknet::{
             price * amount
         }
 
+        /// Get the current model error
+        /// @param model_id: The model id to get the metrics for
+        /// @return: The current model absolute error, mean squared error
         fn get_model_error(self: @ContractState, model_id: u64) -> (u128, u128) {
             let mae = self.model_metrics.entry(model_id).error.mae.read();
             let mse = self.model_metrics.entry(model_id).error.mse.read();
             return (mae, mse);
         }
 
+        /// Get the current model ROI
+        /// @param model_id: The model id to get the metrics for
+        /// @return: The current model ROI
         fn get_model_roi(self: @ContractState, model_id: u64) -> (u128, bool) {
             let roi = self.model_metrics.entry(model_id).roi.value.read();
             let flag = self.model_metrics.entry(model_id).roi.is_negative.read();
             return (roi, flag);
         }
 
+        /// Get the current model max drawdown
+        /// @param model_id: The model id to get the metrics for    
+        /// @return: The current model max drawdown
         fn get_model_max_drawdown(self: @ContractState, model_id: u64) -> u128 {
             let max_drawdown = self.model_metrics.entry(model_id).max_drawdown.max_drawdown.read();
             return max_drawdown;
         }
 
+        /// Get the current model winning ratio
+        /// @param model_id: The model id to get the metrics for
+        /// @return: The current model winning ratio
         fn get_model_winning_ratio(self: @ContractState, model_id: u64) -> u128 {
             let winning_ratio = self.model_metrics.entry(model_id).winning_ratio.ratio.read();
             return winning_ratio;
@@ -137,20 +150,40 @@ use starknet::{
 
     #[abi(embed_v0)]
     impl TraidingModelsOrders of ITraidingModelsOrders<ContractState> {
+        // verifies that admin is the caller
         fn only_admin(self: @ContractState) -> () {
             let caller = get_caller_address();
             assert(caller == self.admin_address.read(), 'Only admin allowed');
         }
+        // verifies that the caller is the model owner
         fn only_authorized_bot(self: @ContractState, model_id: u64) -> () {
             let caller = get_caller_address();
             let is_authorized = self.is_user_authorized(model_id, caller);
             assert(is_authorized, 'Model not authorized');
         }
-        fn deposit(ref self: ContractState, token_address: ContractAddress, model_id: u64, amount: u256,
-            threshold_percentage: u128, expiration_days: u64) -> bool {
+
+        /// Deposit funds into the contract
+        /// @param token_address: The address of the token to deposit
+        /// @param model_id: The model id to deposit for
+        /// @param amount: The amount to deposit
+        /// @param threshold_percentage: The threshold percentage to activate the trade
+        /// @param expiration_days: The expiration days to trade for this user 
+        fn deposit(
+            ref self: ContractState,
+            token_address: ContractAddress,
+            model_id: u64,
+            amount: u256,
+            threshold_percentage: u128,
+            expiration_days: u64
+        ) -> bool {
+            // authorize caller
             let caller = get_caller_address();
             let is_authorized = self.is_user_authorized(model_id, caller);
             assert(is_authorized, 'Model not authorized');
+
+            // verify token
+            let (token1, toke2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
+            assert(token_address == token1 || token_address == toke2, 'Token not authorized');
 
             let erc20_dispatcher = IERC20Dispatcher { contract_address: token_address};
             let deposit: bool = erc20_dispatcher.transfer_from(caller, get_contract_address(), amount);
@@ -160,8 +193,8 @@ use starknet::{
                 self.user_balances.entry(caller).entry(model_id).entry(token_address).write(current_balance + amount);
             }
 
+            // authorize user to bot
             if !self.user_model_authorization.entry(caller).entry(model_id).read() {
-                // Update the trading parameters
                 self.user_model_authorization.entry(caller).entry(model_id).write(true);
                 let count = self.model_user_count.entry(model_id).read();
                 self.model_user_count.entry(model_id).write(count + 1);
@@ -173,6 +206,7 @@ use starknet::{
                 );
             }
 
+            // set user trading parameters
             let current_time = get_block_timestamp();
             let expiration_timestamp = current_time + expiration_days * 86400;  // 86400 seconds per day
             self.trading_parameters.entry(caller).entry(model_id).write(TradingParameters{
@@ -190,8 +224,20 @@ use starknet::{
             return deposit;
         }   
         
-        fn withdraw(ref self: ContractState, token_address: ContractAddress,  model_id: u64, amount: u256,
-            threshold_percentage: u32, expiration_days: u64) -> bool {
+        /// Withdraw funds from the contract
+        /// @param token_address: The address of the token to withdraw
+        /// @param model_id: The model id to withdraw for
+        /// @param amount: The amount to withdraw
+        /// @param threshold_percentage: The threshold percentage to activate the trade
+        /// @param expiration_days: The expiration days to trade for this user
+        /// @return: True if the withdrawal was successful, false otherwise
+        fn withdraw(
+            ref self: ContractState,
+            token_address: ContractAddress,
+            model_id: u64,
+            amount: u256,
+            expiration_days: u64
+        ) -> bool {
             let caller = get_caller_address();
 
             let current_balance = self.user_balances.entry(caller).entry(model_id).entry(token_address).read();
@@ -220,7 +266,17 @@ use starknet::{
             return withdrawal;
         }
 
-        fn update_trading_parameters(ref self: ContractState, model_id: u64, threshold_percentage: u128, expiration_days: u64) -> () {
+        /// Update the trading parameters for a user
+        /// @param model_id: The model id to update
+        /// @param threshold_percentage: The threshold percentage to activate the trade
+        /// @param expiration_days: The expiration days to trade for this user
+        /// @return: none
+        fn update_trading_parameters(
+            ref self: ContractState,
+            model_id: u64,
+            threshold_percentage: u128,
+            expiration_days: u64
+        ) -> () {
             let caller = get_caller_address();
             let current_time = get_block_timestamp();
             let expiration_timestamp = current_time + expiration_days * 86400;  // 86400 seconds per day
@@ -284,7 +340,15 @@ use starknet::{
             self.user_model_authorization.entry(user_address).entry(model_id).read()
         }
 
-        fn execute_batch_trades(ref self: ContractState, model_id: u64, predicted_price: u128) -> () {
+        /// Execute trades for all users authorized for this model
+        /// @param model_id: The model id to execute trades for
+        /// @param predicted_price: The predicted price to compare against
+        /// @return: none
+        fn execute_batch_trades(
+            ref self: ContractState,
+            model_id: u64,
+            predicted_price: u128
+        ) -> () {
             let authorization = self.is_model_authorized(model_id);
             assert(authorization, 'Model not authorized');
 
@@ -309,46 +373,15 @@ use starknet::{
             );
 
         }
-        fn execute_user_trade(
-            ref self: ContractState,
-            model_id: u64,
-            user_address: ContractAddress,
-            token_address: ContractAddress,
-            amount: u256
-        ) -> () {
 
-            let (token_1, token_2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
-
-            let mut target_token: ContractAddress = contract_address_const::<0x0>();
-
-            if token_address == token_1 {
-                target_token = token_2;
-            } else {
-                target_token = token_1;
-            }
-
-            let jedi_swap_dispatcher = IJediSwapV2SwapRouterDispatcher { contract_address: self.jedi_swap_contract.read() };
-            jedi_swap_dispatcher.exact_input_single(
-                ExactInputSingleParams {
-                    token_in: token_address,
-                    token_out: target_token,
-                    fee: 20,
-                    recipient: get_contract_address(),
-                    deadline: get_block_timestamp() + 86400,
-                    amount_in: amount,
-                    amount_out_minimum: 0,
-                    sqrt_price_limit_X96: 0,
-                }
-            );
-
-            self.emit(TradeExecuted{
-                model_id: model_id,
-                asset_id: token_address,
-                prediction: self.model_metrics.entry(model_id).prediction.read(),
-                amount: amount,
-            });   
-        }
-
+        /// Iterates over model_users and executes trades for each user
+        /// @param model_id: The model id to execute trades for
+        /// @param current_index: The current user to process
+        /// @param user_count: The total number of users to process
+        /// @param current_price: The current price of the asset
+        /// @param predicted_price: The predicted price of the asset
+        /// @param token_address: The token address to execute trades for
+        /// @return: none
         fn process_users_recursively(
             ref self: ContractState,
             model_id: u64,
@@ -380,7 +413,7 @@ use starknet::{
 
             let current_time: u64 = get_block_timestamp();
             if (current_time <= params.expiration_timestamp) {
-                let percentage_diff: u128 = self.abs_diff(current_price, predicted_price) * 100 / current_price;
+                let percentage_diff: u128 = abs_diff(current_price, predicted_price) * 100 / current_price;
 
                 if (percentage_diff > params.threshold_percentage) {
                     self.execute_user_trade(model_id, user, token_address, user_balance);
@@ -398,7 +431,52 @@ use starknet::{
                 predicted_price,
                 token_address
             );
+        }
 
+        /// Execute a trade for a user
+        /// @param model_id: The model id to execute trades for
+        /// @param user_address: The user address to execute trades for
+        /// @param token_address: The token address to execute trades for
+        /// @param amount: The amount to execute trades for
+        /// @return: none
+        fn execute_user_trade(
+            ref self: ContractState,
+            model_id: u64,
+            user_address: ContractAddress,
+            token_address: ContractAddress,
+            amount: u256
+        ) -> () {
+
+            let (token_1, token_2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
+
+            let mut target_token: ContractAddress = contract_address_const::<0x0>();
+
+            if token_address == token_1 {
+                target_token = token_2;
+            } else {
+                target_token = token_1;
+            }
+
+            let jedi_swap_dispatcher = IJediSwapV2SwapRouterDispatcher { contract_address: self.jedi_swap_contract.read() };
+            jedi_swap_dispatcher.exact_input_single(
+                ExactInputSingleParams {
+                    token_in: token_address,
+                    token_out: target_token,
+                    fee: 20,
+                    recipient: get_contract_address(),
+                    deadline: get_block_timestamp() + 3600,// 1 hour
+                    amount_in: amount,
+                    amount_out_minimum: 0,
+                    sqrt_price_limit_X96: 0,
+                }
+            );
+
+            self.emit(TradeExecuted{
+                model_id: model_id,
+                asset_id: token_address,
+                prediction: self.model_metrics.entry(model_id).prediction.read(),
+                amount: amount,
+            });   
         }
 
         fn process_expirations_recursively(ref self: ContractState, model_id: u64) -> () {
@@ -407,14 +485,6 @@ use starknet::{
 
         fn withdraw_expired(ref self: ContractState, model_id: u64, token_address: ContractAddress) -> () {
             return ();
-        }
-
-        fn abs_diff(self: @ContractState, a: u128, b: u128) -> u128 {
-            if a > b {
-                return a - b;
-            } else {
-                return b - a;
-            }
         }
     }
 
