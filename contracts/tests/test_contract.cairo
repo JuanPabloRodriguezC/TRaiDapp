@@ -1,52 +1,36 @@
-use snforge_std::{declare, ContractClassTrait, DeclareResultTrait};
-use starknet::{ContractAddress, contract_address_const};
-
-use app::interfaces::ITraidingModels::{ITraidingModelsMetricsDispatcher, ITraidingModelsMetricsDispatcherTrait};
-
-fn deploy_pragma_data_fetcher(pragma_oracle_address: ContractAddress) -> ContractAddress {
-    let contract = declare("PragmaDataFetcher").unwrap().contract_class();
-
-    let mut calldata = array![];
-    pragma_oracle_address.serialize(ref calldata);
-
-    let (contract_address, _) = contract.deploy(@calldata).unwrap();
-
-    contract_address
-}
+use snforge_std::{declare, DeclareResultTrait, ContractClassTrait};
+// Ensure the MyPriceConsumer module is imported correctly
+use contracts::interfaces::ITraidingModels::{ITraidingModelsMetricsDispatcher, ITraidingModelsMetricsDispatcherTrait};
 
 #[test]
-fn test_deployment() {
-    // We'll use a mock contract address for testing deployment
-    let mock_pragma_address: ContractAddress = contract_address_const::<1>();
-    let contract_address: ContractAddress = deploy_pragma_data_fetcher(mock_pragma_address);
-    
-    // Just check that deployment works
-    let dispatcher = ITraidingModelsMetricsDispatcher{contract_address: contract_address};
-    assert(dispatcher.contract_address != contract_address_const::<0>(), 'Contract not deployed');
-}
+fn test_get_eth_price_uses_pragma() {
+    // 1. Declare the Mock Pragma contract class
+    let mock_pragma_contract = declare("MockPragma").unwrap().contract_class();
 
-#[test]
-#[ignore]
-fn test_get_asset_price_on_fork() {
-    // This test requires a fork environment to run properly
-    // Use: snforge test test_get_asset_price_on_fork --fork-at-block MAINNET_FORK=latest
-    
-    // Mainnet Pragma Oracle Address
-    let pragma_address = contract_address_const::<0x36031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a>();
-    let contract_address = deploy_pragma_data_fetcher(pragma_address);
-    
-    let dispatcher = ITraidingModelsMetricsDispatcher{contract_address};
-    
-    // Using the ETH_USD constant from PragmaDataFetcher module
-    let asset_id: felt252 = 19514442401534788; // ETH_USD
-    
-    // Call the actual price fetch function - needs forked environment
-    let price: u128 = dispatcher.get_asset_price(asset_id);
-    
-    // Price should be non-zero for ETH
-    assert(price > 0_u128, 'ETH price should be > 0');
-    
-    // For a real-world price, ETH is usually > $1000
-    // The price might have decimals, but we're checking for a reasonable minimum
-    assert(price > 1000_u128, 'ETH price seems too low');
+    // 2. Deploy the Mock Pragma contract
+    let (mock_pragma_address, _) = mock_pragma_contract.deploy(@array![]).unwrap();
+
+    // 3. Declare the user's contract (MyPriceConsumer) class
+    let my_consumer_contract = declare("TraidingModels").unwrap().contract_class();
+
+    // 4. Prepare constructor arguments for the user's contract: the mock Pragma address
+    let mut consumer_constructor_args = array![];
+    Serde::serialize(@mock_pragma_address, ref consumer_constructor_args);
+
+    // 5. Deploy the user's contract
+    let (my_consumer_address, _) = my_consumer_contract
+        .deploy(@consumer_constructor_args)
+        .unwrap();
+
+    // 6. Create a dispatcher for the user's contract to interact with it
+    let my_consumer_dispatcher = ITraidingModelsMetricsDispatcher { contract_address: my_consumer_address };
+
+    // 7. Call the function in the user's contract that calls Pragma
+    let eth_price_from_consumer = my_consumer_dispatcher.get_asset_price(19514442401534788);
+   
+
+    // 8. Assert the result. It should be the fixed price returned by the Mock Pragma contract.
+    // Expected price from MockPragma is 1900_00000000_u128
+    let expected_price = 1900_00000000_u128;
+    assert(eth_price_from_consumer == expected_price, 'Consumer did not get');
 }

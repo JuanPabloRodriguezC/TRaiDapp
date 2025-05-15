@@ -1,18 +1,6 @@
 # Visit https://foundry-rs.github.io/starknet-foundry/appendix/snfoundry-toml.html
 # and https://foundry-rs.github.io/starknet-foundry/projects/configuration.html for more information
 
-[tool.snforge]
-# exit_first = true                                  # Stop tests execution immediately upon the first failure
-# fuzzer_runs = 1234                                 # Number of runs of the random fuzzer
-# fuzzer_seed = 1111                                 # Seed for the random fuzzer
-
-# Fork configuration for testing with Pragma Oracle on mainnet
-[[tool.snforge.fork]]
-name = "MAINNET_FORK"
-url = "https://free-rpc.nethermind.io/mainnet-juno/v0_7"  # Mainnet RPC
-block_id.tag = "latest"                               # Block to fork from (latest)
-
-# Cast configuration for deployments
 # [sncast.default]                                         # Define a profile name
 # url = "https://free-rpc.nethermind.io/sepolia-juno/v0_7" # Url of the RPC provider
 # accounts-file = "../account-file"                        # Path to the file with the account data

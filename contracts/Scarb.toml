@@ -1,5 +1,5 @@
 [package]
-name = "app"
+name = "contracts"
 version = "0.1.0"
 edition = "2024_07"
 
@@ -31,10 +31,10 @@ test = "snforge test"
 # url = "https://starknet-mainnet.infura.io/v3/b95f73a27561488c8148c928329f732f"                                # Url of the RPC provider
 # block_id.tag = "latest"                                    # Block to fork from (block tag)
 
-# [profile.dev.cairo]                                        # Configure Cairo compiler
+#[profile.dev.cairo]                                        # Configure Cairo compiler
 # unstable-add-statements-code-locations-debug-info = true   # Should be used if you want to use coverage
 # unstable-add-statements-functions-debug-info = true        # Should be used if you want to use coverage/profiler
 # inlining-strategy = "avoid"                                # Should be used if you want to use coverage
 
 # [features]                                                 # Used for conditional compilation
-# enable_for_tests = []                                      # Feature name and list of other features that should be enabled with it
+# enable_for_tests = [gas]                                      # Feature name and list of other features that should be enabled with it
