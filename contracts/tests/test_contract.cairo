@@ -1,36 +1,63 @@
+use starknet::ContractAddress;
+use starknet::{ contract_address_const };
 use snforge_std::{declare, DeclareResultTrait, ContractClassTrait};
-// Ensure the MyPriceConsumer module is imported correctly
+use snforge_std::{
+    start_cheat_caller_address_global, stop_cheat_caller_address_global
+};
 use contracts::interfaces::ITraidingModels::{ITraidingModelsMetricsDispatcher, ITraidingModelsMetricsDispatcherTrait};
+use contracts::interfaces::ITraidingModels::{ITraidingModelsOrdersDispatcher, ITraidingModelsOrdersDispatcherTrait};
 
-#[test]
-fn test_get_eth_price_uses_pragma() {
-    // 1. Declare the Mock Pragma contract class
+
+fn setup() -> ContractAddress {
     let mock_pragma_contract = declare("MockPragma").unwrap().contract_class();
-
-    // 2. Deploy the Mock Pragma contract
     let (mock_pragma_address, _) = mock_pragma_contract.deploy(@array![]).unwrap();
 
-    // 3. Declare the user's contract (MyPriceConsumer) class
-    let my_consumer_contract = declare("TraidingModels").unwrap().contract_class();
+    let mock_jedi_contract = declare("MockJedi").unwrap().contract_class();
+    let (mock_jedi_address, _) = mock_jedi_contract.deploy(@array![]).unwrap();
 
-    // 4. Prepare constructor arguments for the user's contract: the mock Pragma address
-    let mut consumer_constructor_args = array![];
-    Serde::serialize(@mock_pragma_address, ref consumer_constructor_args);
+    let traid_contract = declare("TraidingModels").unwrap().contract_class();
+    let mut calldata = array![];
+    Serde::serialize(@mock_pragma_address, ref calldata);
+    Serde::serialize(@mock_jedi_address, ref calldata);
+    let (traid_address, _) = traid_contract.deploy(@calldata).unwrap();
 
-    // 5. Deploy the user's contract
-    let (my_consumer_address, _) = my_consumer_contract
-        .deploy(@consumer_constructor_args)
-        .unwrap();
+    traid_address
+}
 
-    // 6. Create a dispatcher for the user's contract to interact with it
-    let my_consumer_dispatcher = ITraidingModelsMetricsDispatcher { contract_address: my_consumer_address };
+fn setup_token() -> ContractAddress {
+    let token_contract = declare("MockIERC20").unwrap().contract_class();
+    let (token_address, _) = token_contract.deploy(@array![]).unwrap();
+    token_address
+}
 
-    // 7. Call the function in the user's contract that calls Pragma
-    let eth_price_from_consumer = my_consumer_dispatcher.get_asset_price(19514442401534788);
-   
+#[test]
+fn test_pragma_response(){
+    let address = setup();    
+    let dispatcher = ITraidingModelsOrdersDispatcher { contract_address: address };
 
-    // 8. Assert the result. It should be the fixed price returned by the Mock Pragma contract.
-    // Expected price from MockPragma is 1900_00000000_u128
-    let expected_price = 1900_00000000_u128;
-    assert(eth_price_from_consumer == expected_price, 'Consumer did not get');
+    let price: u128 = dispatcher.get_asset_price(19514442401534788);
+    let expected_price: u128 = 1900_00000000_u128;
+    assert(price == expected_price, 'Consumer did not get');
+}
+
+#[test]
+fn add_users_test(){
+    let address: ContractAddress = setup();
+    let order_dispatcher = ITraidingModelsOrdersDispatcher { contract_address: address };
+    let metrics_dispatcher = ITraidingModelsMetricsDispatcher { contract_address: address };
+
+    let user_address = contract_address_const::<0x1234567890abcdef>();
+    let token_address = setup_token();
+    let target_token_address = contract_address_const::<0xababa1234567890>();
+
+    metrics_dispatcher.add_model('model1', token_address, target_token_address);
+
+    start_cheat_caller_address_global(user_address);
+    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5);
+    
+    let balance: u256 = order_dispatcher.get_user_balance(0, user_address);
+
+    assert(balance == 100_00000000, 'User data mismatch');
+
+    stop_cheat_caller_address_global();
 }
