@@ -35,10 +35,11 @@ use starknet::{
         pragma_contract: ContractAddress,
         jedi_swap_contract: ContractAddress,
         token_to_usd_ticker: Map<ContractAddress, felt252>,
+        model_count: u64,
         model_metrics: Map<u64, Metrics>,
         model_tokens: Map<u64, (ContractAddress, ContractAddress)>,
         model_authorization: Map<u64, bool>,
-        user_model_authorization: Map<ContractAddress, Map<u64, bool>>,
+        model_user_authorization: Map<ContractAddress, Map<u64, bool>>,
         model_users: Map<u64, Map<u32, ContractAddress>>,
         model_user_count: Map<u64, u32>,
         model_fees: Map<u64, u128>,
@@ -63,21 +64,20 @@ use starknet::{
 
     #[abi(embed_v0)]
     impl TraidingModelsMetrics of ITraidingModelsMetrics<ContractState> {
-        /// Get current median price for a token pair
-        /// calls pragma oracle contract
-        /// @param asset_id: The asset id to get the price for
-        /// @return: The current price of the asset
-        fn get_asset_price(self: @ContractState, asset_id: felt252) -> u128 {
-            // Retrieve the oracle dispatcher
-            let oracle_dispatcher = IPragmaABIDispatcher {
-                contract_address: self.pragma_contract.read(),
-            };
+        fn add_model(
+            ref self: ContractState,
+            model_name: felt252,
+            token_1: ContractAddress,
+            token_2: ContractAddress,
+        ) -> u64 {
+            let count = self.model_count.read();
+            assert(token_1 != token_2, 'Tokens must be different');
+            self.model_tokens.entry(count).write((token_1, token_2));
+            self.model_count.write(count + 1);
 
-            // Call the Oracle contract, for a spot entry
-            let output: PragmaPricesResponse = oracle_dispatcher
-                .get_data_median(DataType::SpotEntry(asset_id));
+            self.model_authorization.entry(count).write(true);
 
-            return output.price;
+            count
         }
 
         /// Update the current model predictions
@@ -143,24 +143,40 @@ use starknet::{
         fn get_model_winning_ratio(self: @ContractState, model_id: u64) -> u128 {
             let winning_ratio = self.model_metrics.entry(model_id).winning_ratio.ratio.read();
             return winning_ratio;
-        }  
+        }
+
+        fn calculate_model_fees(ref self: ContractState, model_id: u64, asset_id: ContractAddress) -> u128 {
+            // Placeholder for calculating model fees logic
+            return 0;
+        }
 
         
     }
 
     #[abi(embed_v0)]
     impl TraidingModelsOrders of ITraidingModelsOrders<ContractState> {
+
+        /// Get current median price for a token pair
+        /// calls pragma oracle contract
+        /// @param asset_id: The asset id to get the price for
+        /// @return: The current price of the asset
+        fn get_asset_price(self: @ContractState, asset_id: felt252) -> u128 {
+            // Retrieve the oracle dispatcher
+            let oracle_dispatcher = IPragmaABIDispatcher {
+                contract_address: self.pragma_contract.read(),
+            };
+
+            // Call the Oracle contract, for a spot entry
+            let output: PragmaPricesResponse = oracle_dispatcher
+                .get_data_median(DataType::SpotEntry(asset_id));
+
+            return output.price;
+        }
+
         // verifies that admin is the caller
         fn only_admin(self: @ContractState) -> () {
             let caller = get_caller_address();
             assert(caller == self.admin_address.read(), 'Only admin allowed');
-        }
-
-        // verifies that the caller is the model owner
-        fn only_authorized_bot(self: @ContractState, model_id: u64) -> () {
-            let caller = get_caller_address();
-            let is_authorized = self.is_user_authorized(model_id, caller);
-            assert(is_authorized, 'Model not authorized');
         }
 
         fn find_user_index(self: @ContractState, model_id: u64, user_address: ContractAddress) -> u32 {
@@ -190,9 +206,9 @@ use starknet::{
             threshold_percentage: u128,
             expiration_days: u64
         ) -> bool {
-            // authorize caller
+            // authorize modeel
             let caller = get_caller_address();
-            let is_authorized = self.is_user_authorized(model_id, caller);
+            let is_authorized = self.model_authorization.entry(model_id).read();
             assert(is_authorized, 'Model not authorized');
 
             // verify token
@@ -208,8 +224,8 @@ use starknet::{
             }
 
             // authorize user to bot
-            if !self.user_model_authorization.entry(caller).entry(model_id).read() {
-                self.user_model_authorization.entry(caller).entry(model_id).write(true);
+            if !self.model_user_authorization.entry(caller).entry(model_id).read() {
+                self.model_user_authorization.entry(caller).entry(model_id).write(true);
                 let count = self.model_user_count.entry(model_id).read();
                 self.model_user_count.entry(model_id).write(count + 1);
                 self.emit(
@@ -273,7 +289,7 @@ use starknet::{
 
             if ((current_balance - amount) == 0) {
                 // Remove user authorization if balance is zero
-                self.user_model_authorization.entry(caller).entry(model_id).write(false);
+                self.model_user_authorization.entry(caller).entry(model_id).write(false);
                 let count = self.model_user_count.entry(model_id).read();
                 self.model_user_count.entry(model_id).write(count - 1);
             }
@@ -314,28 +330,12 @@ use starknet::{
             self.user_balances.entry(user_address).entry(model_id).entry(token_address).read()
         }
 
-        fn calculate_model_fees(ref self: ContractState, model_id: u64, asset_id: ContractAddress) -> u128 {
-            // Placeholder for calculating model fees logic
-            return 0;
-        }
         
-        fn authorize_model(ref self: ContractState, model_id: u64) -> bool {
-            self.model_authorization.entry(model_id).write(true);
-            return true;
-        }
         
-        fn deauthorize_model(ref self: ContractState, model_id: u64) -> bool {
-            self.model_authorization.entry(model_id).write(false);
-            return true;
-        }
-        
-        fn is_model_authorized(self: @ContractState, model_id: u64) -> bool {
-            self.model_authorization.entry(model_id).read()
-        }
 
         fn authorize_user(ref self: ContractState, model_id: u64, user_address: ContractAddress) -> () {
 
-            self.user_model_authorization.entry(user_address).entry(model_id).write(true);
+            self.model_user_authorization.entry(user_address).entry(model_id).write(true);
             let count = self.model_user_count.entry(model_id).read();
             self.model_users.entry(model_id).entry(count).write(user_address);
             self.model_user_count.entry(model_id).write(count + 1);
@@ -352,7 +352,7 @@ use starknet::{
         /// @param user_address: The user address to deauthorize
         /// @return: none
         fn deauthorize_user(ref self: ContractState, model_id: u64, user_address: ContractAddress) -> () {
-            self.user_model_authorization.entry(user_address).entry(model_id).write(false);
+            self.model_user_authorization.entry(user_address).entry(model_id).write(false);
             let count = self.model_user_count.entry(model_id).read();
             
 
@@ -368,10 +368,6 @@ use starknet::{
             return ();
         }
 
-        fn is_user_authorized(self: @ContractState, model_id: u64, user_address: ContractAddress) -> bool {
-            self.user_model_authorization.entry(user_address).entry(model_id).read()
-        }
-
         /// Execute trades for all users authorized for this model
         /// @param model_id: The model id to execute trades for
         /// @param predicted_price: The predicted price to compare against
@@ -381,7 +377,7 @@ use starknet::{
             model_id: u64,
             predicted_price: u128
         ) -> () {
-            let authorization = self.is_model_authorized(model_id);
+            let authorization = self.model_authorization.entry(model_id).read();
             assert(authorization, 'Model not authorized');
 
             let (token_1, token_2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();

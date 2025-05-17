@@ -1,7 +1,7 @@
 use starknet::ContractAddress;
 //sign true for negative numbers
 #[derive(Drop, Serde)]
-struct i256 {
+pub struct i256 {
     mag: u256,
     sign: bool,
 }
@@ -19,7 +19,7 @@ pub struct ExactInputSingleParams {
 }
 
 #[derive(Drop, Serde)]
-struct ExactInputParams {
+pub struct ExactInputParams {
     path: Array<felt252>,
     recipient: ContractAddress,
     deadline: u64,
@@ -28,7 +28,7 @@ struct ExactInputParams {
 }
 
 #[derive(Drop, Serde)]
-struct ExactOutputSingleParams {
+pub struct ExactOutputSingleParams {
     token_in: ContractAddress,
     token_out: ContractAddress,
     fee: u32,
@@ -40,7 +40,7 @@ struct ExactOutputSingleParams {
 }
 
 #[derive(Drop, Serde)]
-struct ExactOutputParams {
+pub struct ExactOutputParams {
     path: Array::<felt252>,
     recipient: ContractAddress,
     deadline: u64,

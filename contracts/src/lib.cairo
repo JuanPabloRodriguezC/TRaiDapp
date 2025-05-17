@@ -5,11 +5,19 @@ pub mod interfaces{
     pub mod IJediSwap;
 }
 
-pub mod MockPragma;
-pub mod TraidingModels;
+pub mod mocks{
+    pub mod MockIERC20;
+    pub mod MockPragma;
+    pub mod MockJedi;
+    
+}
 
 pub mod utils{
     pub mod events;
     pub mod types;
     pub mod functions;
 }
+
+pub mod TraidingModels;
+
+
