@@ -14,7 +14,7 @@ use starknet::{
     use crate::interfaces::IJediSwap::{ ExactInputSingleParams, IJediSwapV2SwapRouterDispatcher, IJediSwapV2SwapRouterDispatcherTrait};
     use crate::utils::functions::abs_diff;
     use crate::utils::types::{Metrics, TradingParameters};
-    use crate::utils::events::{BotAuthorized, FundsDeposited, FundsWithdrawn, ModelUpdated, TradeExecuted,
+    use crate::utils::events::{BotAuthorized, FundsDeposited, FundsWithdrawn, ExpiredFundsWithdrawn, ModelUpdated, TradeExecuted,
                                 ModelMetricsUpdated, TradingParametersSet};
 
     #[event]
@@ -24,6 +24,7 @@ use starknet::{
         BotAuthorized: BotAuthorized,
         FundsDeposited: FundsDeposited,
         FundsWithdrawn: FundsWithdrawn,
+        ExpiredFundsWithdrawn: ExpiredFundsWithdrawn,
         ModelUpdated: ModelUpdated,
         ModelMetricsUpdated: ModelMetricsUpdated,
         TradingParametersSet: TradingParametersSet,
@@ -36,22 +37,25 @@ use starknet::{
         jedi_swap_contract: ContractAddress,
         token_to_usd_ticker: Map<ContractAddress, felt252>,
         model_count: u64,
+        model_owner: Map<u64, ContractAddress>,
         model_metrics: Map<u64, Metrics>,
         model_tokens: Map<u64, (ContractAddress, ContractAddress)>,
-        model_authorization: Map<u64, bool>,
-        model_user_authorization: Map<ContractAddress, Map<u64, bool>>,
-        model_users: Map<u64, Map<u32, ContractAddress>>,
         model_user_count: Map<u64, u32>,
-        model_fees: Map<u64, u128>,
+        model_users: Map<u64, Map<u32, ContractAddress>>,
         user_balances: Map<ContractAddress, Map<u64, Map<ContractAddress, u256>>>,
         trading_parameters: Map<ContractAddress, Map<u64, TradingParameters>>,
+        model_user_authorization: Map<ContractAddress, Map<u64, bool>>,
+        model_fees: Map<u64, u128>,
+        
+        
     }    
 
     #[constructor]
     fn constructor(ref self: ContractState, pragma_oracle_address: ContractAddress, jedi_swap_address: ContractAddress) {
         self.pragma_contract.write(pragma_oracle_address);
         self.jedi_swap_contract.write(jedi_swap_address);
-        //tokens from pragma oracle
+
+        //assets from pragma oracle
         self.token_to_usd_ticker.entry(contract_address_const::<0xD76b5c2A23ef78368d8E34288B5b65D616B746aE>()).write(19514442401534788);//ETH
         self.token_to_usd_ticker.entry(contract_address_const::<0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599>()).write(6287680677296296772);//WBTC
         self.token_to_usd_ticker.entry(contract_address_const::<0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0>()).write(412383036120118613857092);//WSTEH
@@ -64,20 +68,32 @@ use starknet::{
 
     #[abi(embed_v0)]
     impl TraidingModelsMetrics of ITraidingModelsMetrics<ContractState> {
+
         fn add_model(
             ref self: ContractState,
             model_name: felt252,
             token_1: ContractAddress,
             token_2: ContractAddress,
+            owner: ContractAddress,
         ) -> u64 {
             let count = self.model_count.read();
             assert(token_1 != token_2, 'Tokens must be different');
             self.model_tokens.entry(count).write((token_1, token_2));
             self.model_count.write(count + 1);
-
-            self.model_authorization.entry(count).write(true);
-
+            self.model_owner.entry(count).write(owner);
             count
+        }
+
+        fn remove_model(ref self: ContractState, model_id: u64) -> () {
+            self.only_admin();
+            let user_count = self.model_user_count.entry(model_id).read();
+
+            for user in 0..user_count{
+                self.withdraw_expired(model_id, self.model_users.entry(model_id).entry(user).read(), get_block_timestamp());
+                self.model_user_authorization.entry(self.model_users.entry(model_id).entry(user).read()).entry(model_id).write(false);
+            };
+
+            return ();
         }
 
         /// Update the current model predictions
@@ -204,26 +220,29 @@ use starknet::{
             model_id: u64,
             amount: u256,
             threshold_percentage: u128,
-            expiration_days: u64
+            expiration: u64
         ) -> bool {
-            // authorize modeel
-            let caller = get_caller_address();
-            let is_authorized = self.model_authorization.entry(model_id).read();
-            assert(is_authorized, 'Model not authorized');
-
             // verify token
-            let (token1, toke2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
-            assert(token_address == token1 || token_address == toke2, 'Token not authorized');
+            let (token1, token2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
+            assert(token_address == token1 || token_address == token2, 'Token not authorized');
 
+            let caller = get_caller_address();
             let erc20_dispatcher = IERC20Dispatcher { contract_address: token_address};
             let deposit: bool = erc20_dispatcher.transfer_from(caller, get_contract_address(), amount);
             if deposit {
                 // Update the user balance
                 let current_balance = self.user_balances.entry(caller).entry(model_id).entry(token_address).read();
                 self.user_balances.entry(caller).entry(model_id).entry(token_address).write(current_balance + amount);
+
+                self.emit(
+                FundsDeposited{
+                    model_id: model_id,
+                    user_address: caller,
+                    amount: amount,
+                }
+            );
             }
 
-            // authorize user to bot
             if !self.model_user_authorization.entry(caller).entry(model_id).read() {
                 self.model_user_authorization.entry(caller).entry(model_id).write(true);
                 let count = self.model_user_count.entry(model_id).read();
@@ -238,19 +257,22 @@ use starknet::{
 
             // set user trading parameters
             let current_time = get_block_timestamp();
-            let expiration_timestamp = current_time + expiration_days * 86400;  // 86400 seconds per day
+            let expiration_timestamp = current_time + expiration * 3600;  // 86400 seconds per day
             self.trading_parameters.entry(caller).entry(model_id).write(TradingParameters{
                 threshold_percentage: threshold_percentage,
                 expiration_timestamp: expiration_timestamp,
             });
 
             self.emit(
-                FundsDeposited{
+                TradingParametersSet{
                     model_id: model_id,
-                    user_address: caller,
-                    amount: amount,
+                    user: caller,
+                    threshold_percentage: threshold_percentage,
+                    expiration_timestamp: expiration_timestamp,
                 }
             );
+
+            
             return deposit;
         }   
         
@@ -266,7 +288,6 @@ use starknet::{
             token_address: ContractAddress,
             model_id: u64,
             amount: u256,
-            expiration_days: u64
         ) -> bool {
             let caller = get_caller_address();
 
@@ -305,11 +326,11 @@ use starknet::{
             ref self: ContractState,
             model_id: u64,
             threshold_percentage: u128,
-            expiration_days: u64
+            expiration: u64
         ) -> () {
             let caller = get_caller_address();
             let current_time = get_block_timestamp();
-            let expiration_timestamp = current_time + expiration_days * 86400;  // 86400 seconds per day
+            let expiration_timestamp = current_time + expiration * 3600;  // 86400 seconds per day
             self.trading_parameters.entry(caller).entry(model_id).write(TradingParameters{
                 threshold_percentage: threshold_percentage,
                 expiration_timestamp: expiration_timestamp,
@@ -318,6 +339,7 @@ use starknet::{
             self.emit(
                 TradingParametersSet{
                     model_id: model_id,
+                    user: caller,
                     threshold_percentage: threshold_percentage,
                     expiration_timestamp: expiration_timestamp,
                 }
@@ -325,14 +347,19 @@ use starknet::{
             return ();
         }
 
+        /// Get the user balance for a model
+        /// @param model_id: The model id to get the balance for
+        /// @param user_address: The user address to get the balance for
+        /// @return: The user balance for the model
         fn get_user_balance(self: @ContractState, model_id: u64, user_address: ContractAddress) -> u256 {
             let (token_address, _): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
             self.user_balances.entry(user_address).entry(model_id).entry(token_address).read()
         }
 
-        
-        
-
+        /// Authorize a model to trade for a user
+        /// @param model_id: The model id to authorize
+        /// @param user_address: The user address to authorize
+        /// @return: none
         fn authorize_user(ref self: ContractState, model_id: u64, user_address: ContractAddress) -> () {
 
             self.model_user_authorization.entry(user_address).entry(model_id).write(true);
@@ -347,7 +374,7 @@ use starknet::{
             );
         }
 
-        /// Replaces the deauthorized user with the last one
+        /// Deauthorizes user from model and removes them from the list of users, however balance is untouched
         /// @param model_id: The model id from which to deauthorize user
         /// @param user_address: The user address to deauthorize
         /// @return: none
@@ -377,11 +404,18 @@ use starknet::{
             model_id: u64,
             predicted_price: u128
         ) -> () {
-            let authorization = self.model_authorization.entry(model_id).read();
-            assert(authorization, 'Model not authorized');
+            let mut current_price: u128 = 0;
 
             let (token_1, token_2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
-            let current_price: u128 = self.get_asset_price(self.token_to_usd_ticker.entry(token_1).read());
+
+            //this gets price for token_1 in terms of token_2 if token_2 is not USDC
+            if token_2 != contract_address_const::<0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48>() {
+                current_price = self.get_asset_price(self.token_to_usd_ticker.entry(token_1).read());
+                let token_2_price = self.get_asset_price(self.token_to_usd_ticker.entry(token_2).read());
+                current_price = (current_price * 100000000) / token_2_price;
+            }else{
+                current_price = self.get_asset_price(self.token_to_usd_ticker.entry(token_1).read());
+            }
 
             let mut target_token: ContractAddress = contract_address_const::<0x0>();
 
@@ -448,7 +482,7 @@ use starknet::{
                 }
                 
             } else {
-                self.withdraw_expired(model_id, user);
+                self.withdraw_expired(model_id, user, current_time);
             }
 
             return self.process_users_recursively(
@@ -507,12 +541,55 @@ use starknet::{
             });   
         }
 
-        fn process_expirations_recursively(ref self: ContractState, model_id: u64) -> () {
-            return ();
-        }
+        /// Withdraw expired funds for a user
+        /// @param model_id: The model id to withdraw for
+        /// @param token_address: The token address in which transaction is made
+        /// @param user_address: The user address withdrawing funds
+        /// @param timestamp: The set timestamp
+        fn withdraw_expired(ref self: ContractState, model_id: u64, user_address: ContractAddress, timestamp: u64) -> () {
+            
+            let (token1, token2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
 
-        fn withdraw_expired(ref self: ContractState, model_id: u64, token_address: ContractAddress) -> () {
-            return ();
+    
+            let balance1 = self.user_balances.entry(user_address).entry(model_id).entry(token1).read();
+            let balance2 = self.user_balances.entry(user_address).entry(model_id).entry(token2).read();
+            let erc20_dispatcher = IERC20Dispatcher { contract_address: token2 };
+
+            if balance1 > 0 {
+                let withdrawal = erc20_dispatcher.transfer(user_address, balance1);
+
+                if withdrawal {
+                    self.user_balances.entry(user_address).entry(model_id).entry(token1).write(0);
+                    self.model_user_authorization.entry(user_address).entry(model_id).write(false);
+                    self.emit(
+                        ExpiredFundsWithdrawn{
+                            model_id: model_id,
+                            user_address: user_address,
+                            amount: balance1,
+                            expiration_timestamp: timestamp,
+                        }
+                
+                    );
+                }
+            }
+
+            if balance2 > 0 {
+                
+                let withdrawal = erc20_dispatcher.transfer(user_address, balance2);
+
+                if withdrawal {
+                    self.user_balances.entry(user_address).entry(model_id).entry(token2).write(0);
+                    self.model_user_authorization.entry(user_address).entry(model_id).write(false);
+                    self.emit(
+                        ExpiredFundsWithdrawn{
+                            model_id: model_id,
+                            user_address: user_address,
+                            amount: balance2,
+                            expiration_timestamp: timestamp,
+                        }
+                    );
+                }
+            }
         }
     }
 

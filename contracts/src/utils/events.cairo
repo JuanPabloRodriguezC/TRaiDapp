@@ -21,6 +21,14 @@ pub struct FundsWithdrawn {
 }
 
 #[derive(Drop, starknet::Event)]
+pub struct ExpiredFundsWithdrawn {
+    pub model_id: u64,
+    pub user_address: ContractAddress,
+    pub amount: u256,
+    pub expiration_timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
 pub struct ModelUpdated {
     pub model_id: u64,
     pub prediction: u128,
@@ -39,6 +47,7 @@ pub struct ModelMetricsUpdated {
 #[derive(Drop, starknet::Event)]
 pub struct TradingParametersSet{
     pub model_id: u64,
+    pub user: ContractAddress,
     pub threshold_percentage: u128,
     pub expiration_timestamp: u64,
 }
