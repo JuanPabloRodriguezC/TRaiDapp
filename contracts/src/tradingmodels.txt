@@ -247,7 +247,6 @@ use starknet::{
                 self.model_user_authorization.entry(caller).entry(model_id).write(true);
                 let count = self.model_user_count.entry(model_id).read();
                 self.model_user_count.entry(model_id).write(count + 1);
-                self.model_users.entry(model_id).entry(count).write(caller);
                 self.emit(
                     BotAuthorized{
                         model_id: model_id,
@@ -352,14 +351,9 @@ use starknet::{
         /// @param model_id: The model id to get the balance for
         /// @param user_address: The user address to get the balance for
         /// @return: The user balance for the model
-        fn get_user_balance(self: @ContractState, model_id: u64, user_address: ContractAddress, token_address: ContractAddress) -> u256 {
-            let (token_1, token_2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
-            assert(token_address == token_1 || token_address == token_2, 'Token not authorized for model');
-            if token_address == token_1 {
-                return self.user_balances.entry(user_address).entry(model_id).entry(token_1).read();
-            }else{
-                return self.user_balances.entry(user_address).entry(model_id).entry(token_2).read();
-            }
+        fn get_user_balance(self: @ContractState, model_id: u64, user_address: ContractAddress) -> u256 {
+            let (token_address, _): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
+            self.user_balances.entry(user_address).entry(model_id).entry(token_address).read()
         }
 
         /// Authorize a model to trade for a user
@@ -464,7 +458,6 @@ use starknet::{
             }
 
             let user: ContractAddress = self.model_users.entry(model_id).entry(current_index).read();
-            assert(user != contract_address_const::<0x0>(), 'User address is zero');
             let user_balance: u256 = self.user_balances.entry(user).entry(model_id).entry(token_address).read();
 
             if user_balance == 0 {
@@ -482,7 +475,7 @@ use starknet::{
 
             let current_time: u64 = get_block_timestamp();
             if (current_time <= params.expiration_timestamp) {
-                let percentage_diff: u128 = abs_diff(current_price, predicted_price) * 100_00000000 / current_price;
+                let percentage_diff: u128 = abs_diff(current_price, predicted_price) * 100 / current_price;
 
                 if (percentage_diff > params.threshold_percentage) {
                     self.execute_user_trade(model_id, user, token_address, user_balance);
@@ -527,7 +520,7 @@ use starknet::{
             }
 
             let jedi_swap_dispatcher = IJediSwapV2SwapRouterDispatcher { contract_address: self.jedi_swap_contract.read() };
-            let amount_out: u256 = jedi_swap_dispatcher.exact_input_single(
+            jedi_swap_dispatcher.exact_input_single(
                 ExactInputSingleParams {
                     token_in: token_address,
                     token_out: target_token,
@@ -540,14 +533,11 @@ use starknet::{
                 }
             );
 
-            self.user_balances.entry(user_address).entry(model_id).entry(target_token).write(amount_out);
-
             self.emit(TradeExecuted{
                 model_id: model_id,
-                user: user_address,
-                token_in: token_address,
-                token_out: target_token,
-                amount_in: amount,
+                asset_id: token_address,
+                prediction: self.model_metrics.entry(model_id).prediction.read(),
+                amount: amount,
             });   
         }
 

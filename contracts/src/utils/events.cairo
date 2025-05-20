@@ -55,7 +55,8 @@ pub struct TradingParametersSet{
 #[derive(Drop, starknet::Event)]
 pub struct TradeExecuted {
     pub model_id: u64,
-    pub asset_id: ContractAddress,
-    pub prediction: u128,
-    pub amount: u256,
+    pub user: ContractAddress,
+    pub token_in: ContractAddress,
+    pub token_out: ContractAddress,
+    pub amount_in: u256,
 }

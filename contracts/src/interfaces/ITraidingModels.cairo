@@ -21,7 +21,7 @@ pub trait ITraidingModelsOrders<TContractState> {
     fn deposit(ref self: TContractState, token_address: ContractAddress, model_id: u64, amount: u256, threshold_percentage: u128, expiration: u64) -> bool;
     fn withdraw(ref self: TContractState, token_address: ContractAddress, model_id: u64, amount: u256) -> bool;
     fn update_trading_parameters(ref self: TContractState, model_id: u64, threshold_percentage: u128, expiration: u64) -> ();
-    fn get_user_balance(self: @TContractState, model_id: u64, user_address: ContractAddress) -> u256;
+    fn get_user_balance(self: @TContractState, model_id: u64, user_address: ContractAddress, token_address:ContractAddress) -> u256;
     fn authorize_user(ref self: TContractState, model_id: u64, user_address: ContractAddress) -> ();
     fn deauthorize_user(ref self: TContractState, model_id: u64, user_address: ContractAddress) -> ();
     fn find_user_index(self: @TContractState, model_id: u64, user_address: ContractAddress) -> u32;

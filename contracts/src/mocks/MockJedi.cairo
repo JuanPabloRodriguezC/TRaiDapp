@@ -11,7 +11,7 @@ pub mod MockJedi {
             'factory_address'.try_into().unwrap()
         }
         fn exact_input_single(ref self: ContractState, params: ExactInputSingleParams) -> u256 {
-            return 1000_u256;
+            return 900_u256;
         }
         fn exact_input(ref self: ContractState, params: ExactInputParams) -> u256 {
             return 1000_u256;

@@ -14,7 +14,7 @@ pub mod MockPragma {
             // Return a fixed, known price for testing
             // Using an example price like 1900 USD for ETH with 8 decimals
             PragmaPricesResponse {
-                price: 1900_00000000_u128,
+                price: 900_00000000_u128,
                 decimals: 8,
                 last_updated_timestamp: 1678886400, // Example timestamp
                 num_sources_aggregated: 5, // Example number
