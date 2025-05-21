@@ -1,3 +1,7 @@
+.tx-table{
+  width:100%;
+  background-color: var(--mat-sys-surface-container-low);
+}
 .grid-container {
   margin: 20px;
 }
@@ -17,9 +21,13 @@
 }
 
 .dashboard-card-content {
-  text-align: center;
-  height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+}
+
+.mat-elevation-z8{
+  flex:1;
+  overflow: auto;
 }

@@ -32,10 +32,10 @@ import { NgxChartsModule } from '@swimlane/ngx-charts';
 })
 export class DashboardComponent implements OnInit{
   private breakpointObserver = inject(BreakpointObserver);
-  displayedColumns: string[] = ['target token', 'amount', 'timestamp'];
+  displayedColumns: string[] = ['timestamp', 'target token', 'amount' ];
   pie_chart_data: any[] = [];
   tableData: any[] = [];
-  mock_address: string = '0xabcdef12305424011';
+  
 
   view: [number, number] = [500, 270];
 
@@ -84,12 +84,9 @@ export class DashboardComponent implements OnInit{
   }
 
   ngOnInit(): void {
-    this.tableData = [
-    { target_token: 'ETH', amount: 0.5, timestamp: '2023-10-01' },
-    { target_token: 'BTC', amount: 0.2, timestamp: '2023-10-02' },
-    { target_token: 'USDT', amount: 1000, timestamp: '2023-10-03' },
-  ]
-      this.api_service.getAllocData(this.mock_address)
+    let address : string = localStorage.getItem('walletAddress') || '';
+    
+      this.api_service.getAllocData(address)
         .pipe(
           map(
           (data: AssetAllocationData[]) => {
@@ -109,6 +106,14 @@ export class DashboardComponent implements OnInit{
           }
         }
         )
+
+      this.api_service.getTableData(address).subscribe({
+        next: (res) => {
+          this.tableData = res;
+          console.log('Table data:', this.tableData);
+        }
+        , error: (err) => {
+      }})
   }
 
 }

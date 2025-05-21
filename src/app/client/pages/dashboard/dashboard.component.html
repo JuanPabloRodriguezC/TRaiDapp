@@ -32,25 +32,26 @@
               </ngx-charts-pie-chart>
             </div>
             <div *ngIf="card.title === 'Recent Trades'" class="mat-elevation-z8">
-              <table mat-table [dataSource]="tableData">
+              <table mat-table [dataSource]="tableData" class="tx-table">
 
-                
+                <ng-container matColumnDef="timestamp">
+                  <th mat-header-cell *matHeaderCellDef> Timestamp </th>
+                  <td mat-cell *matCellDef="let element"> {{element.timestamp}} </td>
+                </ng-container>
+
                 <ng-container matColumnDef="target token">
                   <th mat-header-cell *matHeaderCellDef> Token </th>
-                  <td mat-cell *matCellDef="let element"> {{element.position}} </td>
+                  <td mat-cell *matCellDef="let element"> {{element.token_id}} </td>
                 </ng-container>
 
                 
                 <ng-container matColumnDef="amount">
                   <th mat-header-cell *matHeaderCellDef> Amount </th>
-                  <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+                  <td mat-cell *matCellDef="let element"> {{element.amount}} </td>
                 </ng-container>
 
         
-                <ng-container matColumnDef="timestamp">
-                  <th mat-header-cell *matHeaderCellDef> Timestamp </th>
-                  <td mat-cell *matCellDef="let element"> {{element.weight}} </td>
-                </ng-container>
+                
 
 
                 <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>

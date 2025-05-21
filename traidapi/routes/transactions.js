@@ -11,15 +11,15 @@ export default function(pool){
       
         const result = await pool.query(`
           SELECT
-            a.token_id, a.amount
+            t.timestamp, t.token_id, t.amount
           FROM
-            asset_allocations a
-            WHERE a.contract_address = $1
-          ORDER BY a.amount ASC
-          FETCH FIRST 30 ROWS ONLY`, [id]);
+            transactions t
+            WHERE t.contract_address = $1
+            ORDER BY t.timestamp DESC
+            FETCH FIRST 30 ROWS ONLY`, [id]);
         
         if (result.rows.length === 0) {
-          return res.status(404).json({ error: 'Asset allocation not found for this user' });
+          return res.status(404).json({ error: 'Prediction and real time data not found' });
         }
         res.json(result.rows);
     } catch (err) {

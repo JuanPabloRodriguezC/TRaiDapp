@@ -22,3 +22,9 @@ export interface AssetAllocationData {
   token_id: string,
   amount: number,
 }
+
+export interface TransactionData {
+  token_id: string,
+  amount: number,
+  timestamp: string,
+}
