@@ -5,3 +5,7 @@ mat-sidenav-container {
 mat-sidenav, mat-sidenav-content {
   height: 100%;
 }
+
+app-header{
+  background-color: var(--mat-sys-primary);
+}

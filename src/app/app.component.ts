@@ -8,7 +8,7 @@ import { HeaderComponent } from './client/components/header/header.component';
     selector: 'app-root',
     imports: [RouterOutlet, MatSidenavModule, SidenavComponent, HeaderComponent],
     templateUrl: './app.component.html',
-    styleUrl: './app.component.css'
+    styleUrl: './app.component.scss'
 })
 export class AppComponent {
   title = 'triadapp';

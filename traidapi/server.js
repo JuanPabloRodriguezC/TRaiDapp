@@ -43,11 +43,13 @@ app.use(cors());
 import botsRouter from './routes/bots.js';
 import subsRouter from './routes/subscritption.js';
 import graphRouter from './routes/graph.js';
+import allocRouter from './routes/asset-allocations.js';
 
 // Route middlewares
 app.use('/api/bots', botsRouter(pool));
 app.use('/api/subscriptions', subsRouter(pool));
 app.use('/api/graphdata', graphRouter(pool));
+app.use('/api/allocation', allocRouter(pool));
 
 // Log when routes are set up
 console.log('Routes configured');

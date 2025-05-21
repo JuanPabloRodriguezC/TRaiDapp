@@ -43,7 +43,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
     CommonModule
   ],
   templateUrl: './explore-bot.component.html',
-  styleUrl: './explore-bot.component.css'
+  styleUrl: './explore-bot.component.scss'
 })
 export class ExploreBotComponent implements OnInit {
   multi: any[] = [];
@@ -57,7 +57,6 @@ export class ExploreBotComponent implements OnInit {
     '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
     '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359'
   ];
-
   // Risk tolerance options
   riskOptions = [
     { value: 'low', viewValue: 'Low' },

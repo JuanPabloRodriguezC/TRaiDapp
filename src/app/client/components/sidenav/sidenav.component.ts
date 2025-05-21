@@ -8,7 +8,7 @@ import { RouterModule } from '@angular/router';
   standalone: true,
   imports: [MatListModule, MatSidenavModule, RouterModule],
   templateUrl: './sidenav.component.html',
-  styleUrl: './sidenav.component.css'
+  styleUrl: './sidenav.component.scss'
 })
 export class SidenavComponent {
   @ViewChild('sidenavInstance') sidenavInstance!: MatSidenav;

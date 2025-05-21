@@ -5,14 +5,15 @@ import { MatToolbar } from '@angular/material/toolbar';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 
 
 @Component({
   selector: 'app-header',
-  imports: [CommonModule, RouterModule, MatToolbar, MatMenuModule, MatIconModule, MatButtonModule],
+  imports: [CommonModule, RouterModule, MatToolbar, MatMenuModule, MatIconModule, MatButtonModule, MatSlideToggleModule],
   templateUrl: './header.component.html',
-  styleUrl: './header.component.css'
+  styleUrl: './header.component.scss'
 })
 export class HeaderComponent {
   @Output() toggleSidenav = new EventEmitter<number>();
@@ -20,6 +21,7 @@ export class HeaderComponent {
   isWalletConnected: boolean = false;
   walletAddress: string = '';
   isMenuOpen: boolean = false;
+  checked: boolean = false;
   private walletEventHandlers: WalletEventHandlers | null = null;
 
   ngOnInit(): void {
