@@ -36,52 +36,19 @@
                     
                     <mat-card-content>
                         <form [formGroup]="tradeForm" class="trade-form">
-                            <!-- Asset Percentage Slider -->
-                            <div class="form-field">
-                                <label>
-                                    Percentage of Assets: {{tradeForm.get('percentAssets')?.value}}%
-                                    <mat-icon aria-hidden="false" aria-label="Example home icon" fontIcon="help" matTooltip="Percentage your wallet token amount to trade."></mat-icon>
-                                </label>
-                                <mat-slider 
-                                    min="1" 
-                                    max="100" 
-                                    step="1" 
-                                    discrete 
-                                    showTickMarks
-                                    class="full-width">
-                                    <input matSliderThumb formControlName="percentAssets">
-                                </mat-slider>
-                            </div>
 
-                            <!-- Threshold Slider -->
-                            <div class="form-field">
-                                <label>
-                                    Trading Threshold: {{tradeForm.get('percentThreshold')?.value}}
-                                    <mat-icon aria-hidden="false" aria-label="Example home icon" fontIcon="help" matTooltip="Minimum change that is a fraction of current price to trigger a trade "></mat-icon>
-                                </label>
-                                
-
-                                <mat-slider 
-                                    min="0" 
-                                    max="1" 
-                                    step="0.01" 
-                                    discrete 
-                                    showTickMarks
-                                    class="full-width">
-                                    <input matSliderThumb formControlName="percentThreshold">
-                                </mat-slider>
-                            </div>
                             
-                            <!-- Wallet Address Dropdown -->
+                            
+                            <!-- Token Selector -->
                             <mat-form-field appearance="outline" class="full-width">
-                                <mat-label>Wallet Address</mat-label>
-                                <mat-select formControlName="walletAddress">
-                                    <mat-option *ngFor="let wallet of walletAddresses" [value]="wallet">
-                                        {{wallet | slice:0:8}}...{{wallet | slice:-6}}
+                                <mat-label>Select a Token</mat-label>
+                                <mat-select formControlName="tokenId">
+                                    <mat-option *ngFor="let token of tokens" [value]="token">
+                                        {{token}}
                                     </mat-option>
                                 </mat-select>
-                                <mat-error *ngIf="tradeForm.get('walletAddress')?.invalid">
-                                    Please select a wallet
+                                <mat-error *ngIf="tradeForm.get('tokenId')?.invalid">
+                                    Please select a token
                                 </mat-error>
                             </mat-form-field>
                             
@@ -94,9 +61,26 @@
                                     Amount is required
                                 </mat-error>
                                 <mat-error *ngIf="tradeForm.get('amount')?.hasError('min')">
-                                    Minimum amount is $10
+                                    Minimum amount is 1
                                 </mat-error>
                             </mat-form-field>
+
+                            <!-- Threshold Slider -->
+                            <div class="form-field">
+                                <label>
+                                    Trading Threshold: {{tradeForm.get('percentThreshold')?.value}}
+                                    <mat-icon aria-hidden="false" aria-label="Example home icon" fontIcon="help" matTooltip="Minimum change that is a fraction of current price to trigger a trade "></mat-icon>
+                                </label>
+                                <mat-slider 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.01" 
+                                    discrete 
+                                    showTickMarks
+                                    class="full-width">
+                                    <input matSliderThumb formControlName="percentThreshold">
+                                </mat-slider>
+                            </div>
                             
                             <!-- Trading Period Datepicker -->
                             <mat-form-field appearance="outline" class="full-width">
