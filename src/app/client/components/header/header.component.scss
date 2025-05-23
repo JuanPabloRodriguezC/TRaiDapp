@@ -1,4 +1,13 @@
 
+mat-toolbar {
+    background-color: var(--mat-sys-primary);
+    color: var(--mat-sys-on-primary);
+    padding: 0 16px;
+}
+.sidenav-btn{
+  color: var(--mat-sys-on-primary);
+}
+
 .toolbar-spacer {
     flex: 1 1 auto;
 }
@@ -6,26 +15,21 @@
 .desktop-nav {
 display: flex;
 align-items: center;
+gap: 16px;
+}
+
+.dark-mode-toggle {
+  margin-right: 8px;
 }
 
 /* Custom wallet address styling */
 .wallet-address {
-    font-family: monospace;
+    font-size: 1rem;
     letter-spacing: 0.5px;
+    color: var(--mat-sys-on-primary);
 }
 
-.button-examples {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 24px;
-}
 
-.button-examples > div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
 /* Container (similar to Bootstrap container) */
 .mat-container {
     width: 100%;

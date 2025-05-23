@@ -7,7 +7,7 @@
 - Tests: `ng test` (full test suite)
 - Single test: `ng test --include=**/your-component.spec.ts`
 - API server: `cd traidapi && npm run dev`
-- Contracts tests: `cd contracts && scarb run test`
+- Contracts tests: `cd contracts && snforge test`
 
 ## Code Style Guidelines
 - TypeScript: Strict mode enabled with no implicit returns/overrides
