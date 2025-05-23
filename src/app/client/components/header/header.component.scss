@@ -4,7 +4,9 @@ mat-toolbar {
     color: var(--mat-sys-on-primary);
     padding: 0 16px;
 }
-
+.sidenav-btn{
+  color: var(--mat-sys-on-primary);
+}
 
 .toolbar-spacer {
     flex: 1 1 auto;
