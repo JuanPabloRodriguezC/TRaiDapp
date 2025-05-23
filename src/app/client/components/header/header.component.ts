@@ -1,18 +1,20 @@
 import { Component, EventEmitter, Output, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { RouterModule } from '@angular/router';
 import { MatToolbar } from '@angular/material/toolbar';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatIconModule } from '@angular/material/icon';
+import { MatIcon, MatIconRegistry } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { WalletConnectionService } from '../../../Services/wallet-connection.service';
+import { ThemeService } from '../../../Services/theme.service';
+import { DomSanitizer } from '@angular/platform-browser';
 
 
 
 @Component({
   selector: 'app-header',
-  imports: [CommonModule, RouterModule, MatToolbar, MatMenuModule, MatIconModule, MatButtonModule, MatSlideToggleModule],
+  imports: [CommonModule, RouterModule, MatToolbar, MatMenuModule, MatIcon, MatButtonModule, MatSlideToggleModule],
   templateUrl: './header.component.html',
   styleUrl: './header.component.scss'
 })
@@ -21,7 +23,17 @@ export class HeaderComponent implements OnInit {
 
   isMenuOpen: boolean = false;
 
-  constructor(private walletService: WalletConnectionService, private router: Router) {}
+  constructor(
+    private walletService: WalletConnectionService, 
+    private themeService: ThemeService,
+    private matIconRegistry: MatIconRegistry,
+    private domSanitizer: DomSanitizer
+  ){
+    this.matIconRegistry.addSvgIcon(
+      'starknet-logo',
+      this.domSanitizer.bypassSecurityTrustResourceUrl('assets/SN-Symbol-Gradient.svg')
+    );
+}
   
   ngOnInit(): void {
     this.walletService.checkWalletConnection();
@@ -35,8 +47,8 @@ export class HeaderComponent implements OnInit {
     return this.walletService.walletAddress;
   }
 
-  get checked(): boolean {
-    return this.walletService.checked;
+  get isDarkMode(): boolean {
+    return this.themeService.isDarkMode;
   }
 
   toggleMenu(): void {
@@ -52,11 +64,15 @@ export class HeaderComponent implements OnInit {
   }
 
   disconnectWallet(): void {
-    this.walletService.disconnectWallet();
+    this.walletService.disconnectWallet(false);
   }
 
   formatWalletAddress(address: string): string {
     if (!address) return '';
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  }
+
+  toggleDarkMode(): void {
+    this.themeService.toggleTheme();
   }
 }

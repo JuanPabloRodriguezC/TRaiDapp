@@ -15,6 +15,11 @@ mat-toolbar {
 .desktop-nav {
 display: flex;
 align-items: center;
+gap: 16px;
+}
+
+.dark-mode-toggle {
+  margin-right: 8px;
 }
 
 /* Custom wallet address styling */
