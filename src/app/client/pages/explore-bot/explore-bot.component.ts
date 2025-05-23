@@ -43,7 +43,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
     CommonModule
   ],
   templateUrl: './explore-bot.component.html',
-  styleUrl: './explore-bot.component.css'
+  styleUrl: './explore-bot.component.scss'
 })
 export class ExploreBotComponent implements OnInit {
   multi: any[] = [];
@@ -52,10 +52,9 @@ export class ExploreBotComponent implements OnInit {
   tradeForm: FormGroup;
 
   // Wallet addresses mock data
-  walletAddresses: string[] = [
-    '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
-    '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
-    '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359'
+  tokens: string[] = [
+    'ETH',
+    'USDC'
   ];
 
   // Risk tolerance options
@@ -92,9 +91,9 @@ export class ExploreBotComponent implements OnInit {
     this.tradeForm = this.fb.group({
       percentAssets: [5, [Validators.required, Validators.min(1), Validators.max(100)]],
       percentThreshold: [0.10, [Validators.required, Validators.min(1), Validators.max(100)]],
-      walletAddress: ['', Validators.required],
+      tokenId: ['', Validators.required],
       tradingPeriod: [new Date()],
-      amount: [100, [Validators.required, Validators.min(10)]]
+      amount: [1, [Validators.required, Validators.min(1)]]
     });
 
     // Responsive sizing for chart

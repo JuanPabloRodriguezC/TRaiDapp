@@ -17,3 +17,14 @@ export interface TimeData {
   predicted_price: number,
   close: number
 }
+
+export interface AssetAllocationData {
+  token_id: string,
+  amount: number,
+}
+
+export interface TransactionData {
+  token_id: string,
+  amount: number,
+  timestamp: string,
+}
