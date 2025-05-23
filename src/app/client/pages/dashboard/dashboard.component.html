@@ -1,6 +1,27 @@
 <div class="grid-container">
   <h1 class="mat-h1">Dashboard</h1>
-  <mat-grid-list cols="2" rowHeight="350px">
+  
+  <!-- Wallet not connected state -->
+  <div *ngIf="!isWalletConnected" class="wallet-prompt">
+    <mat-card class="connect-wallet-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>account_balance_wallet</mat-icon>
+          Connect Your Wallet
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>To access your dashboard and view your trading data, please connect your StarkNet wallet.</p>
+        <button mat-raised-button color="primary" (click)="connectWallet()" class="connect-button">
+          <mat-icon>link</mat-icon>
+          Connect Wallet
+        </button>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Dashboard content when wallet is connected -->
+  <mat-grid-list *ngIf="isWalletConnected" cols="2" rowHeight="350px">
     @for (card of cards | async; track card) {
       <mat-grid-tile [colspan]="card.cols" [rowspan]="card.rows">
         <mat-card class="dashboard-card">
@@ -17,6 +38,28 @@
             </mat-card-title>
           </mat-card-header>
           <mat-card-content class="dashboard-card-content">
+            <div *ngIf="card.title === 'Time Performance'" class="chart-container">
+              <ngx-charts-line-chart
+                [view]="timeGraphView"
+                [scheme]="colorScheme"
+                [results]="timeGraphData"
+                [gradient]="false"
+                [xAxis]="true"
+                [yAxis]="true"
+                [legend]="false"
+                [showXAxisLabel]="true"
+                [showYAxisLabel]="true"
+                [xAxisLabel]="'Time'"
+                [yAxisLabel]="'Portfolio Value ($)'"
+                [autoScale]="true"
+                [timeline]="false"
+                [animations]="true"
+                (select)="onSelect($event)"
+                (activate)="onActivate($event)"
+                (deactivate)="onDeactivate($event)"
+                >
+              </ngx-charts-line-chart>
+            </div>
             <div *ngIf="card.title === 'Asset Allocation'">
               <ngx-charts-pie-chart
                 [view]="view"
@@ -56,6 +99,37 @@
 
                 <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
                 <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+              </table>
+            </div>
+            <div *ngIf="card.title === 'Bots'" class="mat-elevation-z8">
+              <table mat-table [dataSource]="botsTableData" class="tx-table">
+
+                <ng-container matColumnDef="name">
+                  <th mat-header-cell *matHeaderCellDef> Bot Name </th>
+                  <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+                </ng-container>
+
+                <ng-container matColumnDef="status">
+                  <th mat-header-cell *matHeaderCellDef> Status </th>
+                  <td mat-cell *matCellDef="let element"> 
+                    <span [class]="'status-' + element.status.toLowerCase()">{{element.status}}</span>
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="performance">
+                  <th mat-header-cell *matHeaderCellDef> Performance </th>
+                  <td mat-cell *matCellDef="let element">
+                    <span [class]="element.performance.startsWith('+') ? 'positive' : 'negative'">{{element.performance}}</span>
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="lastTrade">
+                  <th mat-header-cell *matHeaderCellDef> Last Trade </th>
+                  <td mat-cell *matCellDef="let element"> {{element.lastTrade}} </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="botsDisplayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: botsDisplayedColumns;"></tr>
               </table>
             </div>
           </mat-card-content>
