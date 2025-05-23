@@ -1,11 +1,12 @@
 use starknet::ContractAddress;
+use crate::utils::types::{TokenBalance};
 
 #[starknet::interface]
 pub trait ITraidingModelsMetrics<TContractState> {
     fn add_model(ref self: TContractState, model_name:felt252, token_1: ContractAddress, token_2: ContractAddress, owner: ContractAddress) -> u64;
     fn remove_model(ref self: TContractState, model_id: u64) -> ();
     fn update_model_predictions(ref self: TContractState, model_id: u64, prediction: u128) -> ();
-    fn get_bot_portfolio_value(self: @TContractState, model_id: u64) -> u128;
+    fn get_user_portfolio(self: @TContractState, user_address: ContractAddress) -> Array<TokenBalance>;
     fn get_model_error(self: @TContractState, model_id: u64) -> (u128, u128);
     fn get_model_roi(self: @TContractState, model_id: u64) -> (u128, bool);
     fn get_model_max_drawdown(self: @TContractState, model_id: u64) -> u128;

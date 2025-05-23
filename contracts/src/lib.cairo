@@ -16,6 +16,7 @@ pub mod utils{
     pub mod events;
     pub mod types;
     pub mod functions;
+    pub mod constants;
 }
 
 pub mod TraidingModels;

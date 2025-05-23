@@ -1,3 +1,4 @@
+use starknet::ContractAddress;
 #[derive(Drop, Serde, starknet::Store)]
 pub struct Metrics{
     pub prediction: u128,
@@ -42,4 +43,11 @@ pub struct TradingParameters{
     pub threshold_percentage: u128,
     pub expiration_timestamp: u64,
     pub max_slippage: u128,
+}
+
+#[derive(Drop, Serde)]
+pub struct TokenBalance {
+    pub token_address: ContractAddress,
+    pub balance: u256,
+    pub usd_value: u128,
 }

@@ -13,14 +13,12 @@ use starknet::{
     use crate::interfaces::IERC20::{IERC20Dispatcher, IERC20DispatcherTrait};
     use crate::interfaces::IJediSwap::{ ExactInputSingleParams, IJediSwapV2SwapRouterDispatcher, IJediSwapV2SwapRouterDispatcherTrait};
     use crate::utils::functions::abs_diff;
-    use crate::utils::types::{Metrics, ErrorMetrics, ROIMetrics, DrawdownMetrics, WinningRatioMetrics, TradingParameters};
+    use crate::utils::types::{Metrics, ErrorMetrics, ROIMetrics, DrawdownMetrics, WinningRatioMetrics, TradingParameters, TokenBalance};
     use crate::utils::events::{BotAuthorized, FundsDeposited, FundsWithdrawn, ExpiredFundsWithdrawn, ModelUpdated, TradeExecuted,
                                 ModelMetricsUpdated, TradingParametersSet};
+    use crate::utils::constants::{PRICE_PRECISION, USDC_PRECISION, ETH_PRECISION, METRICS_PRECISION};
 
-    const PRICE_PRECISION: u128 = 100000000;
-    const USDC_PRECISION: u128 = 1000000;
-    const ETH_PRECISION: u128 = 1000000000000000000;
-    const METRICS_PRECISION: u128 = 100;
+    
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -151,11 +149,56 @@ use starknet::{
             return ();
         }
 
-        fn get_bot_portfolio_value(self: @ContractState, model_id: u64) -> u128 {
-            let amount: u128 = self.model_metrics.entry(model_id).portfolio_value.read();
-            let (_, token_address): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
-            let price = self.get_asset_price(self.token_to_usd_ticker.entry(token_address).read());
-            price * amount
+        fn get_user_portfolio(
+            self: @ContractState, 
+            user_address: ContractAddress
+        ) -> Array<TokenBalance> {
+            let mut portfolio = ArrayTrait::new();
+            
+            // Iterate through all models the user is involved with
+            let model_count = self.model_count.read();
+            
+            for model_id in 0..model_count {
+                if self.model_user_authorization.entry(user_address).entry(model_id).read() {
+                    let (token_1, token_2) = self.model_tokens.entry(model_id).read();
+                    
+                    // Get balances
+                    let balance_1 = self.user_balances
+                        .entry(user_address)
+                        .entry(model_id)
+                        .entry(token_1)
+                        .read();
+                    let balance_2 = self.user_balances
+                        .entry(user_address)
+                        .entry(model_id)
+                        .entry(token_2)
+                        .read();
+                    
+                    if balance_1 > 0 {
+                        let price = self.get_asset_price(
+                            self.token_to_usd_ticker.entry(token_1).read()
+                        );
+                        portfolio.append(TokenBalance {
+                            token_address: token_1,
+                            balance: balance_1,
+                            usd_value: (balance_1.low * price) / PRICE_PRECISION,
+                        });
+                    }
+                    
+                    if balance_2 > 0 {
+                        let price = self.get_asset_price(
+                            self.token_to_usd_ticker.entry(token_2).read()
+                        );
+                        portfolio.append(TokenBalance {
+                            token_address: token_2,
+                            balance: balance_2,
+                            usd_value: (balance_2.low * price) / PRICE_PRECISION,
+                        });
+                    }
+                }
+            };
+            
+            portfolio
         }
 
         /// Get the current model error
@@ -703,7 +746,7 @@ use starknet::{
         fn calculate_model_max_drawdown(ref self: ContractState, model_id: u64, asset_id: felt252) -> () {
             let metrics = self.model_metrics.entry(model_id);
             let current_peak = metrics.max_drawdown.historical_peak.read();
-            let current_value = self.get_bot_portfolio_value(model_id);
+            let current_value = 100;
             
             if current_value > current_peak {
                 // New all-time high - update peak
