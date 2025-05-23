@@ -57,7 +57,7 @@ fn add_users_test(){
 
     start_cheat_caller_address_global(user_address);
     let mut spy = spy_events();
-    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5);
+    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5, 100);
 
     spy.assert_emitted(
         @array![
@@ -98,10 +98,10 @@ fn add_multiple_models_test(){
     let last_model: u64 = metrics_dispatcher.add_model('model2', token_address, target_token_address, address);
 
     start_cheat_caller_address_global(user_address_1);
-    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5);
+    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5, 200);
     
     start_cheat_caller_address_global(user_address_2);
-    order_dispatcher.deposit(token_address, 1, 200_00000000, 200, 5);
+    order_dispatcher.deposit(token_address, 1, 200_00000000, 200, 5, 300);
 
     let balance_1: u256 = order_dispatcher.get_user_balance(0, user_address_1, token_address);
     let balance_2: u256 = order_dispatcher.get_user_balance(1, user_address_2, token_address);
@@ -126,8 +126,8 @@ fn multiple_deposits(){
     metrics_dispatcher.add_model('model1', token_address, target_token_address, address);
 
     start_cheat_caller_address_global(user_address);
-    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5);
-    order_dispatcher.deposit(token_address, 0, 200_00000000, 200, 5);
+    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5, 200);
+    order_dispatcher.deposit(token_address, 0, 200_00000000, 200, 5, 200);
 
     let balance = order_dispatcher.get_user_balance(0, user_address, token_address);
     assert(balance == 300_00000000, 'Incorrect balance');
@@ -147,7 +147,7 @@ fn withdraw_test(){
 
     start_cheat_caller_address_global(user_address);
     
-    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5);
+    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5, 100);
     
 
     let mut spy = spy_events();
@@ -206,11 +206,11 @@ fn update_trading_parameters_test(){
     metrics_dispatcher.add_model('model1', token_address, target_token_address, address);
 
     start_cheat_caller_address_global(user_address);
-    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5);
+    order_dispatcher.deposit(token_address, 0, 100_00000000, 200, 5, 100);
 
     let mut spy = spy_events();
 
-    order_dispatcher.update_trading_parameters(0, 100, 10);
+    order_dispatcher.update_trading_parameters(0, 100, 10, 100);
     spy.assert_emitted(
         @array![
             (
@@ -221,6 +221,7 @@ fn update_trading_parameters_test(){
                         user: user_address,
                         threshold_percentage: 100,
                         expiration_timestamp: 10 * 86400,
+                        max_slippage: 100,
                     }
                 ),
             ),
@@ -243,13 +244,12 @@ fn execute_trade_test(){
     metrics_dispatcher.add_model('model1', token_address, target_token_address, address);
 
     start_cheat_caller_address_global(user_address);
-    order_dispatcher.deposit(token_address, 0, 10, 5_00000000, 5);
+    order_dispatcher.deposit(token_address, 0, 10, 5_00000000, 5, 200);
     stop_cheat_caller_address_global();
 
     let mut spy = spy_events();
-    let current_price: u128 = order_dispatcher.get_asset_price(19514442401534788);
 
-    order_dispatcher.process_users_recursively(0, 0, 1, current_price, 1000_00000000, token_address);
+    order_dispatcher.check_user_trade_condition(0, user_address, 1000_00000000);
     
     spy.assert_emitted(
         @array![

@@ -14,14 +14,12 @@ pub struct ErrorMetrics{
     pub mae: u128,
     pub mse: u128,
     pub prediction_count: u64,
-    pub precision: u128,
 }
 
 #[derive(Drop, Serde, starknet::Store)]
 pub struct ROIMetrics{
     pub value: u128,
     pub initial: u128,
-    pub precision: u128,
     pub is_negative: bool,
 }
 
@@ -29,8 +27,7 @@ pub struct ROIMetrics{
 pub struct DrawdownMetrics{
     pub historical_peak: u128,       // Highest portfolio value seen so far
     pub current_value: u128,         // Current portfolio value
-    pub max_drawdown: u128,          // Maximum drawdown seen so far (as percentage × PRECISION)
-    pub PRECISION: u128,             // Fixed-point precision factor
+    pub max_drawdown: u128,            
 }
 
 #[derive(Drop, Serde, starknet::Store)]
@@ -38,11 +35,11 @@ pub struct WinningRatioMetrics{
     pub wins: u128,
     pub losses: u128,
     pub ratio: u128,
-    pub PRECISION: u128,             // Fixed-point precision factor
 }
 
 #[derive(Drop, Serde, starknet::Store)]
 pub struct TradingParameters{
     pub threshold_percentage: u128,
     pub expiration_timestamp: u64,
+    pub max_slippage: u128,
 }
