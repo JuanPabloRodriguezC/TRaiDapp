@@ -50,6 +50,7 @@ pub struct TradingParametersSet{
     pub user: ContractAddress,
     pub threshold_percentage: u128,
     pub expiration_timestamp: u64,
+    pub max_slippage: u128,
 }
 
 #[derive(Drop, starknet::Event)]

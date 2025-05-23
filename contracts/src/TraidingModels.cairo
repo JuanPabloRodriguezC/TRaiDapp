@@ -13,9 +13,14 @@ use starknet::{
     use crate::interfaces::IERC20::{IERC20Dispatcher, IERC20DispatcherTrait};
     use crate::interfaces::IJediSwap::{ ExactInputSingleParams, IJediSwapV2SwapRouterDispatcher, IJediSwapV2SwapRouterDispatcherTrait};
     use crate::utils::functions::abs_diff;
-    use crate::utils::types::{Metrics, TradingParameters};
+    use crate::utils::types::{Metrics, ErrorMetrics, ROIMetrics, DrawdownMetrics, WinningRatioMetrics, TradingParameters};
     use crate::utils::events::{BotAuthorized, FundsDeposited, FundsWithdrawn, ExpiredFundsWithdrawn, ModelUpdated, TradeExecuted,
                                 ModelMetricsUpdated, TradingParametersSet};
+
+    const PRICE_PRECISION: u128 = 100000000;
+    const USDC_PRECISION: u128 = 1000000;
+    const ETH_PRECISION: u128 = 1000000000000000000;
+    const METRICS_PRECISION: u128 = 100;
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -35,6 +40,7 @@ use starknet::{
         admin_address: ContractAddress,
         pragma_contract: ContractAddress,
         jedi_swap_contract: ContractAddress,
+        usdc_address: ContractAddress,
         token_to_usd_ticker: Map<ContractAddress, felt252>,
         model_count: u64,
         model_owner: Map<u64, ContractAddress>,
@@ -51,10 +57,10 @@ use starknet::{
     }    
 
     #[constructor]
-    fn constructor(ref self: ContractState, pragma_oracle_address: ContractAddress, jedi_swap_address: ContractAddress) {
+    fn constructor(ref self: ContractState, pragma_oracle_address: ContractAddress, jedi_swap_address: ContractAddress, usdc_address: ContractAddress) {
         self.pragma_contract.write(pragma_oracle_address);
         self.jedi_swap_contract.write(jedi_swap_address);
-
+        self.usdc_address.write(usdc_address);
         //assets from pragma oracle
         self.token_to_usd_ticker.entry(contract_address_const::<0xD76b5c2A23ef78368d8E34288B5b65D616B746aE>()).write(19514442401534788);//ETH
         self.token_to_usd_ticker.entry(contract_address_const::<0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599>()).write(6287680677296296772);//WBTC
@@ -81,6 +87,32 @@ use starknet::{
             self.model_tokens.entry(count).write((token_1, token_2));
             self.model_count.write(count + 1);
             self.model_owner.entry(count).write(owner);
+            
+            self.model_metrics.entry(count).write(Metrics{
+                prediction: 0,
+                portfolio_value: 0,
+                error: ErrorMetrics{
+                    mae: 0,
+                    mse: 0,
+                    prediction_count: 0,
+                },
+                roi: ROIMetrics{
+                    value: 0,
+                    initial: 0,
+                    is_negative: false,
+                },
+                sharpe_ratio: 0,
+                max_drawdown: DrawdownMetrics{
+                    historical_peak: 0,
+                    current_value: 0,
+                    max_drawdown: 0,
+                },
+                winning_ratio: WinningRatioMetrics{
+                    wins: 0,
+                    losses: 0,
+                    ratio: 0
+                }
+            });
             count
         }
 
@@ -106,8 +138,7 @@ use starknet::{
             // Check if the caller is the contract address
             assert(caller != self.admin_address.read(), 'Only admin can update');
             // Update the model predictions
-            let precision = self.model_metrics.entry(model_id).error.precision.read();
-            let scaled_prediction = prediction * precision;
+            let scaled_prediction = prediction * METRICS_PRECISION;
             self.model_metrics.entry(model_id).prediction.write(scaled_prediction);
 
             self.emit(
@@ -220,7 +251,8 @@ use starknet::{
             model_id: u64,
             amount: u256,
             threshold_percentage: u128,
-            expiration: u64
+            expiration: u64,
+            max_slippage: u128
         ) -> bool {
             // verify token
             let (token1, token2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
@@ -262,6 +294,7 @@ use starknet::{
             self.trading_parameters.entry(caller).entry(model_id).write(TradingParameters{
                 threshold_percentage: threshold_percentage,
                 expiration_timestamp: expiration_timestamp,
+                max_slippage: max_slippage,
             });
 
             self.emit(
@@ -270,6 +303,7 @@ use starknet::{
                     user: caller,
                     threshold_percentage: threshold_percentage,
                     expiration_timestamp: expiration_timestamp,
+                    max_slippage: max_slippage,
                 }
             );
 
@@ -327,7 +361,8 @@ use starknet::{
             ref self: ContractState,
             model_id: u64,
             threshold_percentage: u128,
-            expiration: u64
+            expiration: u64,
+            max_slippage: u128
         ) -> () {
             let caller = get_caller_address();
             let current_time = get_block_timestamp();
@@ -335,6 +370,8 @@ use starknet::{
             self.trading_parameters.entry(caller).entry(model_id).write(TradingParameters{
                 threshold_percentage: threshold_percentage,
                 expiration_timestamp: expiration_timestamp,
+                max_slippage: max_slippage,
+
             });
 
             self.emit(
@@ -343,6 +380,7 @@ use starknet::{
                     user: caller,
                     threshold_percentage: threshold_percentage,
                     expiration_timestamp: expiration_timestamp,
+                    max_slippage: max_slippage,
                 }
             );
             return ();
@@ -405,101 +443,117 @@ use starknet::{
         /// @param model_id: The model id to execute trades for
         /// @param predicted_price: The predicted price to compare against
         /// @return: none
-        fn execute_batch_trades(
+        fn check_user_trade_condition(
             ref self: ContractState,
             model_id: u64,
+            user_address: ContractAddress,
             predicted_price: u128
         ) -> () {
+            let (token_1, token_2) = self.model_tokens.entry(model_id).read();
+            
+            // Get current price of token_1 in terms of token_2
             let mut current_price: u128 = 0;
-
-            let (token_1, token_2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
-
-            //this gets price for token_1 in terms of token_2 if token_2 is not USDC
-            if token_2 != contract_address_const::<0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48>() {
-                current_price = self.get_asset_price(self.token_to_usd_ticker.entry(token_1).read());
-                let token_2_price = self.get_asset_price(self.token_to_usd_ticker.entry(token_2).read());
-                current_price = (current_price * 100000000) / token_2_price;
-            }else{
-                current_price = self.get_asset_price(self.token_to_usd_ticker.entry(token_1).read());
-            }
-
-            let mut target_token: ContractAddress = contract_address_const::<0x0>();
-
-            if current_price > predicted_price{
-                target_token = token_1;
+            if token_2 != self.usdc_address.read() {
+                let token_1_usd_price = self.get_asset_price(self.token_to_usd_ticker.entry(token_1).read());
+                let token_2_usd_price = self.get_asset_price(self.token_to_usd_ticker.entry(token_2).read());
+                // Price of token_1 in terms of token_2
+                current_price = (token_1_usd_price * PRICE_PRECISION) / token_2_usd_price;
             } else {
-                target_token = token_2;
-            }
-
-            self.process_users_recursively(
-                model_id,
-                0,
-                self.model_user_count.entry(model_id).read(),
-                current_price,
-                predicted_price,
-                target_token
-            );
-
-        }
-
-        /// Iterates over model_users and executes trades for each user
-        /// @param model_id: The model id to execute trades for
-        /// @param current_index: The current user to process
-        /// @param user_count: The total number of users to process
-        /// @param current_price: The current price of the asset
-        /// @param predicted_price: The predicted price of the asset
-        /// @param token_address: The token address to execute trades for
-        /// @return: none
-        fn process_users_recursively(
-            ref self: ContractState,
-            model_id: u64,
-            current_index: u32,
-            user_count: u32,
-            current_price: u128,
-            predicted_price: u128,
-            token_address: ContractAddress
-        ) -> () {
-            if current_index >= user_count {
-                return ();
-            }
-
-            let user: ContractAddress = self.model_users.entry(model_id).entry(current_index).read();
-            assert(user != contract_address_const::<0x0>(), 'User address is zero');
-            let user_balance: u256 = self.user_balances.entry(user).entry(model_id).entry(token_address).read();
-
-            if user_balance == 0 {
-                return self.process_users_recursively(
-                    model_id,
-                    current_index + 1,
-                    user_count,
-                    current_price,
-                    predicted_price,
-                    token_address
-                );
+                // token_2 is USDC, so current_price is just token_1's USD price
+                current_price = self.get_asset_price(self.token_to_usd_ticker.entry(token_1).read());
             }
             
-            let params: TradingParameters = self.trading_parameters.entry(user).entry(model_id).read();
-
-            let current_time: u64 = get_block_timestamp();
-            if (current_time <= params.expiration_timestamp) {
-                let percentage_diff: u128 = abs_diff(current_price, predicted_price) * 100_00000000 / current_price;
-
-                if (percentage_diff > params.threshold_percentage) {
-                    self.execute_user_trade(model_id, user, token_address, user_balance);
-                }
-                
+            // Determine which token to sell based on price movement
+            let (source_token, target_token) = if current_price > predicted_price {
+                // Token_1 is overpriced relative to prediction - sell token_1, buy token_2
+                (token_1, token_2)
             } else {
-                self.withdraw_expired(model_id, user, current_time);
+                // Token_1 is underpriced relative to prediction - buy token_1, sell token_2
+                (token_2, token_1)
+            };
+            
+            // Get user's balance of the source token
+            let user_balance = self.user_balances
+                .entry(user_address)
+                .entry(model_id)
+                .entry(source_token)
+                .read();
+            
+            if user_balance == 0 {
+                return; // Nothing to trade
             }
-
-            return self.process_users_recursively(
+            
+            // Check trading parameters
+            let params = self.trading_parameters.entry(user_address).entry(model_id).read();
+            let current_time = get_block_timestamp();
+            
+            if current_time > params.expiration_timestamp {
+                self.withdraw_expired(model_id, user_address, current_time);
+                return;
+            }
+            
+            // Check if price difference exceeds threshold
+            let percentage_diff = abs_diff(current_price, predicted_price) * 100 * PRICE_PRECISION / current_price;
+            
+            if percentage_diff <= params.threshold_percentage {
+                return; // Threshold not met
+            }
+            
+            // Calculate expected output amount
+            let expected_amount_out = self.calculate_expected_output(
                 model_id,
-                current_index + 1,
-                user_count,
-                current_price,
-                predicted_price,
-                token_address
+                user_balance,
+                source_token,
+                target_token,
+                current_price
             );
+            
+            // Apply slippage tolerance
+            let min_amount_out = expected_amount_out * (100_00 - params.max_slippage.into()) / 100_00;
+            
+            self.execute_user_trade(
+                model_id,
+                user_address,
+                source_token,
+                target_token,
+                user_balance,
+                min_amount_out
+            );
+        }
+
+        // Helper function to calculate expected output
+        fn calculate_expected_output(
+            self: @ContractState,
+            model_id: u64,
+            amount_in: u256,
+            source_token: ContractAddress,
+            target_token: ContractAddress,
+            current_price: u128  // price of token_1 in terms of token_2
+        ) -> u256 {
+            let (token_1, token_2) = self.model_tokens.entry(model_id).read();
+            
+            if source_token == token_1 && target_token == token_2 {
+                // Selling token_1 for token_2
+                // If token_2 is USDC (6 decimals) and token_1 is ETH (18 decimals)
+                if target_token == self.usdc_address.read() {
+                    // current_price is in 8 decimals, amount_in is in 18 decimals
+                    // Result should be in 6 decimals (USDC)
+                    (amount_in * current_price.into()) / (ETH_PRECISION * PRICE_PRECISION / USDC_PRECISION).into()
+                } else {
+                    // Both tokens have 18 decimals
+                    (amount_in * current_price.into()) / PRICE_PRECISION.into()
+                }
+            } else {
+                // Selling token_2 for token_1
+                if source_token == self.usdc_address.read() {
+                    // Selling USDC for ETH
+                    // amount_in is in 6 decimals, need result in 18 decimals
+                    (amount_in * PRICE_PRECISION.into() * ETH_PRECISION.into()) / (current_price.into() * USDC_PRECISION.into())
+                } else {
+                    // Both tokens have 18 decimals
+                    (amount_in * PRICE_PRECISION.into()) / current_price.into()
+                }
+            }
         }
 
         /// Execute a trade for a user
@@ -512,40 +566,33 @@ use starknet::{
             ref self: ContractState,
             model_id: u64,
             user_address: ContractAddress,
-            token_address: ContractAddress,
-            amount: u256
+            source_token: ContractAddress,
+            target_token: ContractAddress,
+            amount: u256,
+            min_amount_out: u256
         ) -> () {
 
-            let (token_1, token_2): (ContractAddress, ContractAddress) = self.model_tokens.entry(model_id).read();
-
-            let mut target_token: ContractAddress = contract_address_const::<0x0>();
-
-            if token_address == token_1 {
-                target_token = token_2;
-            } else {
-                target_token = token_1;
-            }
-
             let jedi_swap_dispatcher = IJediSwapV2SwapRouterDispatcher { contract_address: self.jedi_swap_contract.read() };
-            let amount_out: u256 = jedi_swap_dispatcher.exact_input_single(
-                ExactInputSingleParams {
-                    token_in: token_address,
-                    token_out: target_token,
-                    fee: 20,
-                    recipient: get_contract_address(),
-                    deadline: get_block_timestamp() + 3600,// 1 hour
-                    amount_in: amount,
-                    amount_out_minimum: 0,
-                    sqrt_price_limit_X96: 0,
-                }
-            );
+            let params: ExactInputSingleParams = ExactInputSingleParams {
+                token_in: source_token,
+                token_out: target_token,
+                fee: 20,
+                recipient: get_contract_address(),
+                deadline: get_block_timestamp() + 3600,// 1 hour
+                amount_in: amount,
+                amount_out_minimum: min_amount_out,
+                sqrt_price_limit_X96: 0,
+            };
+            let amount_out: u256 =  jedi_swap_dispatcher.exact_input_single(params);
 
-            self.user_balances.entry(user_address).entry(model_id).entry(target_token).write(amount_out);
+            // in case user has balance in target token, add to it
+            let current_target_balance = self.user_balances.entry(user_address).entry(model_id).entry(target_token).read();
+            self.user_balances.entry(user_address).entry(model_id).entry(target_token).write(amount_out + current_target_balance);
 
             self.emit(TradeExecuted{
                 model_id: model_id,
                 user: user_address,
-                token_in: token_address,
+                token_in: source_token,
                 token_out: target_token,
                 amount_in: amount,
             });   
