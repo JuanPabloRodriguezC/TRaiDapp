@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { TradingAgent } from '../Agents/TradingAgent';
+import { TradingAgent } from '../agents/TradingAgent';
 import { AgentConfig, MarketContext, TradingDecision } from '../types/agent';
 
 export class AgentService {
@@ -14,6 +14,8 @@ export class AgentService {
     const agent = new TradingAgent(config);
     const agentKey = `${userId}-${config.id}`;
     
+    // Wait for agent to initialize before storing
+    await agent['initPromise']; // Access private property for initialization
     this.agents.set(agentKey, agent);
     
     // Save agent config to database

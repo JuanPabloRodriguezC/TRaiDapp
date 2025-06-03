@@ -2,11 +2,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import pkg from 'pg';
+import { Pool } from 'pg';
 
 dotenv.config();
-
-const { Pool } = pkg;
 
 // Create pool AFTER environment variables are loaded
 const pool = new Pool({
@@ -45,6 +43,7 @@ import subsRouter from './routes/subscritption.js';
 import graphRouter from './routes/graph.js';
 import allocRouter from './routes/asset-allocations.js';
 import transactionsRouter from './routes/transactions.js';
+import agentsRouter from './routes/agents.js';
 
 // Route middlewares
 app.use('/api/bots', botsRouter(pool));
@@ -52,6 +51,7 @@ app.use('/api/subscriptions', subsRouter(pool));
 app.use('/api/graphdata', graphRouter(pool));
 app.use('/api/allocation', allocRouter(pool));
 app.use('/api/transactionsdata', transactionsRouter(pool));
+app.use('/api/agents', agentsRouter(pool));
 
 // Log when routes are set up
 console.log('Routes configured');

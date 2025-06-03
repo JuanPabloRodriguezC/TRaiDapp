@@ -1,3 +1,5 @@
+import { PredictionResult } from '../types/agent';
+
 export class PredictionService {
   // Integrate with your existing prediction models
   async getPredictions(tokenSymbol: string): Promise<PredictionResult[]> {

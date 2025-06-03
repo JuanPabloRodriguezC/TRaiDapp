@@ -1,17 +1,28 @@
+import { ChatAnthropic } from '@langchain/anthropic';
+import { DynamicTool } from '@langchain/core/tools';
+import { AgentExecutor } from 'langchain/agents';
+import { createReactAgent } from 'langchain/agents';
+import { PromptTemplate } from '@langchain/core/prompts';
+import { BufferMemory } from 'langchain/memory';
+import { PredictionService } from '../services/PredictionService';
+import { MarketDataService } from '../services/MarketDataService';
+import { AgentConfig, MarketContext, TradingDecision } from '../types/agent';
+
 export class TradingAgent {
-  private agent: AgentExecutor;
+  private agent: AgentExecutor | null = null;
   private predictionService: PredictionService;
   private marketService: MarketDataService;
   private config: AgentConfig;
+  private initPromise: Promise<void>;
 
-  constructor(config: AgentConfig) {
+  constructor(config: AgentConfig, predictionService: PredictionService, marketService: MarketDataService) {
     this.config = config;
-    this.predictionService = new PredictionService();
-    this.marketService = new MarketDataService();
-    this.agent = this.initializeAgent();
+    this.predictionService = predictionService;
+    this.marketService = marketService;
+    this.initPromise = this.initializeAgent();
   }
 
-  private initializeAgent(): AgentExecutor {
+  private async initializeAgent(): Promise<void> {
     const tools = [
       new DynamicTool({
         name: "get_predictions",
@@ -60,28 +71,29 @@ export class TradingAgent {
 
     const prompt = this.createStrategyPrompt();
     
-    const llm = new ChatOpenAI({
-      temperature: 0.1,
-      modelName: 'gpt-4',
-      openAIApiKey: process.env.OPENAI_API_KEY
+    const llm = new ChatAnthropic({
+      modelName: 'claude-3-sonnet-20241022',
+      anthropicApiKey: process.env['ANTHROPIC_API_KEY'] || '',
+      temperature: 0.1
     });
 
-    const reactAgent = createReactAgent({
+    const reactAgent = await createReactAgent({
       llm,
       tools,
       prompt
     });
 
-    return new AgentExecutor({
+    this.agent = new AgentExecutor({
       agent: reactAgent,
       tools,
-      memory: new ConversationBufferMemory({
+      memory: new BufferMemory({
         returnMessages: true,
         memoryKey: "chat_history"
       }),
       verbose: true // Set to false in production
     });
   }
+  
 
   private createStrategyPrompt(): PromptTemplate {
     const strategyInstructions = {
@@ -92,50 +104,56 @@ export class TradingAgent {
     };
 
     const template = `You are a {strategy} trading agent for cryptocurrency trading.
+      Your configuration:
+      - Strategy: {strategy}
+      - Risk Tolerance: {riskTolerance}
+      - Max Position Size: {maxPositionSize}
+      - Stop Loss Threshold: {stopLossThreshold}
 
-Your configuration:
-- Strategy: {strategy}
-- Risk Tolerance: {riskTolerance}
-- Max Position Size: {maxPositionSize}
-- Stop Loss Threshold: {stopLossThreshold}
+      Strategy Guidelines: {strategyGuidelines}
 
-Strategy Guidelines: {strategyGuidelines}
+      Available tools:
+      {tools}
 
-Available tools:
-{tools}
+      Current market context:
+      - Token: {tokenSymbol}
+      - Current Price: {currentPrice}
+      - User Balance: {userBalance}
+      - Portfolio Value: {portfolioValue}
 
-Current market context:
-- Token: {tokenSymbol}
-- Current Price: {currentPrice}
-- User Balance: {userBalance}
-- Portfolio Value: {portfolioValue}
+      IMPORTANT RULES:
+      1. Always use get_predictions to get AI model predictions first
+      2. Check market sentiment before making decisions
+      3. Calculate risk metrics for any BUY/SELL decision
+      4. Never exceed max position size limits
+      5. Provide clear reasoning for every decision
+      6. Consider stop-loss thresholds in your analysis
 
-IMPORTANT RULES:
-1. Always use get_predictions to get AI model predictions first
-2. Check market sentiment before making decisions
-3. Calculate risk metrics for any BUY/SELL decision
-4. Never exceed max position size limits
-5. Provide clear reasoning for every decision
-6. Consider stop-loss thresholds in your analysis
+      Your response must be in this JSON format:
+      {{
+        "action": "BUY" | "SELL" | "HOLD",
+        "amount": number (if BUY/SELL),
+        "confidence": number (0-1),
+        "reasoning": "detailed explanation",
+        "riskAssessment": "risk analysis",
+        "predictionSummary": "summary of AI predictions"
+      }}
 
-Your response must be in this JSON format:
-{{
-  "action": "BUY" | "SELL" | "HOLD",
-  "amount": number (if BUY/SELL),
-  "confidence": number (0-1),
-  "reasoning": "detailed explanation",
-  "riskAssessment": "risk analysis",
-  "predictionSummary": "summary of AI predictions"
-}}
+      Begin your analysis:
 
-Begin your analysis:
-
-{agent_scratchpad}`;
+      {agent_scratchpad}`;
 
     return PromptTemplate.fromTemplate(template);
   }
 
   async makeDecision(context: MarketContext): Promise<TradingDecision> {
+    // Ensure agent is initialized
+    await this.initPromise;
+    
+    if (!this.agent) {
+      throw new Error('Agent failed to initialize');
+    }
+
     try {
       const input = {
         strategy: this.config.strategy,
@@ -150,7 +168,7 @@ Begin your analysis:
       };
 
       const result = await this.agent.invoke(input);
-      return this.parseDecision(result.output, context);
+      return this.parseDecision(result['output'], context);
       
     } catch (error) {
       console.error('Agent decision error:', error);
