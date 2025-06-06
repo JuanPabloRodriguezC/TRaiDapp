@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import path from 'path';
+import { Pool } from 'pg';
 
-export default function(pool){
+export default function(pool: Pool){
   const router = Router();
 
   // GET 
@@ -21,12 +23,15 @@ export default function(pool){
         if (result.rows.length === 0) {
           return res.status(404).json({ error: 'Asset allocation not found for this user' });
         }
-        res.json(result.rows);
+        return res.json(result.rows);
     } catch (err) {
-      console.error('Database error:', err.message, '\nStack:', err.stack);
-      res.status(500).json({ 
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      const errorStack = err instanceof Error ? err.stack : undefined;
+
+      console.error('Database error:', errorMessage, '\nStack:', errorStack);
+      return res.status(500).json({ 
         error: 'Failed to fetch data',
-        details: process.env.NODE_ENV === 'development' ? err.message : undefined
+        details: process.env['NODE_ENV'] === 'development' ? errorMessage : undefined
       });
     }
   });

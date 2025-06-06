@@ -1,24 +1,23 @@
 import { ChatAnthropic } from '@langchain/anthropic';
 import { DynamicTool } from '@langchain/core/tools';
-import { AgentExecutor } from 'langchain/agents';
-import { createReactAgent } from 'langchain/agents';
+import { AgentExecutor, createReactAgent } from 'langchain/agents';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { BufferMemory } from 'langchain/memory';
-import { PredictionService } from '../services/PredictionService';
-import { MarketDataService } from '../services/MarketDataService';
+import { PredictionService } from './PredictionService';
+import { MarketDataService } from './MarketDataService';
 import { AgentConfig, MarketContext, TradingDecision } from '../types/agent';
 
 export class TradingAgent {
   private agent: AgentExecutor | null = null;
-  private predictionService: PredictionService;
-  private marketService: MarketDataService;
   private config: AgentConfig;
   private initPromise: Promise<void>;
 
-  constructor(config: AgentConfig, predictionService: PredictionService, marketService: MarketDataService) {
+  constructor(
+    config: AgentConfig, 
+    private predictionService: PredictionService, 
+    private marketService: MarketDataService
+  ) {
     this.config = config;
-    this.predictionService = predictionService;
-    this.marketService = marketService;
     this.initPromise = this.initializeAgent();
   }
 
@@ -90,19 +89,11 @@ export class TradingAgent {
         returnMessages: true,
         memoryKey: "chat_history"
       }),
-      verbose: true // Set to false in production
+      verbose: false
     });
   }
-  
 
   private createStrategyPrompt(): PromptTemplate {
-    const strategyInstructions = {
-      conservative: "Focus on low-risk trades with high confidence predictions. Prefer HOLD over risky positions.",
-      aggressive: "Take calculated risks with moderate confidence predictions. Look for high reward opportunities.",
-      swing: "Look for medium-term trends and reversals. Hold positions for days to weeks.",
-      scalping: "Focus on short-term price movements. Quick in and out trades."
-    };
-
     const template = `You are a {strategy} trading agent for cryptocurrency trading.
       Your configuration:
       - Strategy: {strategy}
@@ -147,7 +138,6 @@ export class TradingAgent {
   }
 
   async makeDecision(context: MarketContext): Promise<TradingDecision> {
-    // Ensure agent is initialized
     await this.initPromise;
     
     if (!this.agent) {
@@ -195,7 +185,6 @@ export class TradingAgent {
 
   private parseDecision(output: string, context: MarketContext): TradingDecision {
     try {
-      // Try to extract JSON from the output
       const jsonMatch = output.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const decision = JSON.parse(jsonMatch[0]);
@@ -206,14 +195,13 @@ export class TradingAgent {
           reasoning: decision.reasoning,
           riskAssessment: decision.riskAssessment,
           timestamp: new Date(),
-          predictionInputs: [] // You can populate this from the agent's tool calls
+          predictionInputs: []
         };
       }
     } catch (error) {
       console.error('Failed to parse agent decision:', error);
     }
 
-    // Fallback parsing
     return {
       action: 'HOLD',
       confidence: 0.5,
