@@ -1,12 +1,16 @@
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { ApiService } from '../../../Services/db_api.service';
-import { TradingAgent, TimeData } from '../../Interfaces/bot';
-import { map, switchMap } from 'rxjs/operators';
-import { ChartModule } from 'primeng/chart';
-import { MetricData } from '../../Interfaces/bot';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { switchMap } from 'rxjs/operators';
+import { ChartModule } from 'primeng/chart';
+import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { InputTextModule } from 'primeng/inputtext';
+import { DropdownModule } from 'primeng/dropdown';
+import { MetricData } from '../../Interfaces/bot';
+import { TradingAgent } from '../../Interfaces/bot';
+import { ApiService } from '../../../Services/db_api.service';
 
 
 
@@ -26,19 +30,40 @@ interface Metric {
   standalone: true,
   imports: [
     CommonModule,
-    ChartModule
+    ChartModule,
+    DropdownModule,
+    ButtonModule,
+    InputNumberModule,
+    ReactiveFormsModule,
+    FormsModule,
+    InputTextModule
   ],
-  templateUrl: './explore-bot.component.html',
-  styleUrl: './explore-bot.component.scss'
+  templateUrl: './explore-agent.component.html',
+  styleUrl: './explore-agent.component.scss'
 })
-export class ExploreBotComponent implements OnInit {
-  selected_agent: TradingAgent = {} as TradingAgent;
+export class ExploreAgentComponent implements OnInit {
+  selectedAgent: TradingAgent = {} as TradingAgent;
   allMetricsData: MetricData[] = [];
   currentMetric: string = 'total_return_pct';
-  tradeForm: FormGroup;
+  subscriptionForm: FormGroup;
   filteredData: MetricData[] = [];
   loading: boolean = true;
   chartData: any;
+
+  riskLevels = [
+    { label: 'Conservative', value: 'conservative' },
+    { label: 'Moderate', value: 'moderate' },
+    { label: 'Aggressive', value: 'aggressive' }
+  ];
+
+  automationLevels = [
+    { label: 'Manual Only', value: 'manual' },
+    { label: 'Alert Only', value: 'alert' },
+    { label: 'Semi-Auto', value: 'semi_auto' },
+    { label: 'Full Auto', value: 'full_auto' }
+  ];
+
+  subscribing = false;
   
   availableMetrics: Metric[] = [
     { 
@@ -69,7 +94,8 @@ export class ExploreBotComponent implements OnInit {
       loading: true
     },
     { 
-      key: 'max_drawdown_pct', label: 'Max Drawdown %',
+      key: 'max_drawdown_pct',
+      label: 'Max Drawdown',
       unit: '%',
       currentValue: 0,
       chartData: null,
@@ -78,7 +104,8 @@ export class ExploreBotComponent implements OnInit {
     },
     { 
       key: 'win_rate_pct',
-      label: 'Win Rate %',unit: '%',
+      label: 'Win Rate',
+      unit: '%',
       currentValue: 0,
       chartData: null,
       chartOptions: null,
@@ -86,7 +113,8 @@ export class ExploreBotComponent implements OnInit {
     },
     { 
       key: 'avg_trade_duration_hours',
-      label: 'Avg Trade Duration',unit: '%',
+      label: 'Avg Trade Duration',
+      unit: 's',
       currentValue: 0,
       chartData: null,
       chartOptions: null,
@@ -94,7 +122,8 @@ export class ExploreBotComponent implements OnInit {
     },
     { 
       key: 'portfolio_value_usd',
-      label: 'Portfolio Value',unit: '%',
+      label: 'Portfolio Value',
+      unit: 'USDT',
       currentValue: 0,
       chartData: null,
       chartOptions: null,
@@ -102,7 +131,8 @@ export class ExploreBotComponent implements OnInit {
     },
     { 
       key: 'api_cost_per_day_usd',
-      label: 'API Cost/Day',unit: '%',
+      label: 'API Cost/Day',
+      unit: 'USDT',
       currentValue: 0,
       chartData: null,
       chartOptions: null,
@@ -110,7 +140,8 @@ export class ExploreBotComponent implements OnInit {
     },
     { 
       key: 'trade_count',
-      label: 'Trade Count',unit: '%',
+      label: 'Trade Count',
+      unit: '%',
       currentValue: 0,
       chartData: null,
       chartOptions: null,
@@ -118,7 +149,8 @@ export class ExploreBotComponent implements OnInit {
     },
     { 
       key: 'volatility_pct',
-      label: 'Volatility %',unit: '%',
+      label: 'Volatility',
+      unit: '%',
       currentValue: 0,
       chartData: null,
       chartOptions: null,
@@ -144,32 +176,50 @@ export class ExploreBotComponent implements OnInit {
     private api: ApiService,
     private fb: FormBuilder
   ) {
-    this.tradeForm = this.fb.group({
-      percentAssets: [5, [Validators.required, Validators.min(1), Validators.max(100)]],
-      percentThreshold: [0.10, [Validators.required, Validators.min(1), Validators.max(100)]],
-      tokenId: ['', Validators.required],
-      tradingPeriod: [new Date()],
-      amount: [1, [Validators.required, Validators.min(1)]]
+    this.subscriptionForm = this.fb.group({
+      riskTolerance: ['', [Validators.required]],
+      maxStopLoss: [5, [Validators.required, Validators.min(1), Validators.max(50)]],
+      investmentAmount: [1000, [Validators.required, Validators.min(100)]],
+      automationLevel: ['', [Validators.required]],
+      walletAddress: ['', [Validators.required, Validators.pattern('/^0x[a-fA-F0-9]{40}$/')]]
     });
   }
 
-  formatTimestamp(timestamp: string): string {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
+
+  isFieldInvalid(fieldName: string): boolean {
+    const field = this.subscriptionForm.get(fieldName);
+    return field ? field.invalid && (field.dirty || field.touched) : false;
   }
-  
-  trade(): void {
-    if (this.tradeForm.valid) {
-      console.log('Trade submitted with values:', this.tradeForm.value);
-      // Here you would call your API service
-      // this.api.submitTrade(this.tradeForm.value).subscribe(...);
+
+  getFieldError(fieldName: string): string {
+    const field = this.subscriptionForm.get(fieldName);
+    if (!field || !field.errors) return '';
+
+    const errors = field.errors;
+    
+    if (errors['required']) return `${fieldName} is required`;
+    if (errors['min']) return `Minimum value is ${errors['min'].min}`;
+    if (errors['max']) return `Maximum value is ${errors['max'].max}`;
+    if (errors['pattern']) return 'Please enter a valid wallet address';
+    
+    return 'Invalid input';
+  }
+
+  subscribeToAgent() {
+    if (this.subscriptionForm.valid) {
+      this.subscribing = true;
+      
+      const formData = {
+        agentId: this.selectedAgent?.id,
+        ...this.subscriptionForm.value
+      };
+      this.subscribing = true;
+      console.log("Subscribed!");
+      
     } else {
-      // Mark all fields as touched to trigger validation messages
-      Object.keys(this.tradeForm.controls).forEach(key => {
-        this.tradeForm.get(key)?.markAsTouched();
+      // Mark all fields as touched to show validation errors
+      Object.keys(this.subscriptionForm.controls).forEach(key => {
+        this.subscriptionForm.get(key)?.markAsTouched();
       });
     }
   }
@@ -196,13 +246,12 @@ export class ExploreBotComponent implements OnInit {
         return this.api.getAgent(id);
       }),
       switchMap(data => {
-        this.selected_agent = data;
+        this.selectedAgent = data;
         return this.api.getGraphData(data.id);
       })
     ).subscribe({
       next: (result) => {
         this.allMetricsData = result;
-        this.filterDataByMetric(this.currentMetric);
         this.initCharts();
         this.loading = false;
       },
@@ -230,8 +279,11 @@ export class ExploreBotComponent implements OnInit {
 
     this.availableMetrics.forEach(metric => {
       // Get historical data for this parameter
-      const labels = this.filteredData.map(d => this.formatTimestamp(d.timestamp));
+      this.filterDataByMetric(metric.key);
+      const labels = this.filteredData.map(d => d.timestamp);
       const data = this.filteredData.map(d => d.metric_value);
+      metric.currentValue = data[data.length - 1];
+      
     
       const datasets: any[] = [
         {
@@ -301,13 +353,6 @@ export class ExploreBotComponent implements OnInit {
         }
       };
     });
-  }
-
-  getChartData() {
-    return this.filteredData.map(item => ({
-      timesptamp: new Date(item.timestamp),
-      value: item.metric_value
-    }));
   }
 
   formatValue(value: number, unit: string): string {
