@@ -1,136 +1,47 @@
-<div class="mat-container">
-    <div class="mat-grid">
-        <div class="header-container">
-            <h1>{{selected_bot.name || 'Loading bot details...'}}</h1>
-            <p *ngIf="selected_bot.date_uploaded">Date uploaded: {{selected_bot.date_uploaded}}</p>
+<div class="flex flex-col gap-6">
+    <!-- Header -->
+    <div class="card">
+        <div class="font-semibold text-xl mb-6 flex items-center justify-between">
+            Trading Agent Performance
+            <button pButton type="button" label="Actualizar datos" icon="pi pi-refresh" (click)="loadHistoricalData()" class="ml-4"></button>
         </div>
-        
-        <div class="graph-grid">
-            <div class="chart-container" *ngIf="multi && multi.length">
-                <ngx-charts-line-chart
-                    [view]="view"
-                    [scheme]="colorScheme"
-                    [legend]="legend"
-                    [showXAxisLabel]="showXAxisLabel"
-                    [showYAxisLabel]="showYAxisLabel"
-                    [xAxis]="xAxis"
-                    [yAxis]="yAxis"
-                    [xAxisLabel]="xAxisLabel"
-                    [yAxisLabel]="yAxisLabel"
-                    [timeline]="timeline"
-                    [results]="multi"
-                    [autoScale]="autoScale"
-                    [legendPosition]="legendPosition"
-                    (select)="onSelect($event)"
-                    (activate)="onActivate($event)"
-                    (deactivate)="onDeactivate($event)">
-                </ngx-charts-line-chart>
+    
+        <!-- Parameter Tabs -->
+        <div class="flex gap-1 mb-6 bg-surface-100 dark:bg-surface-800 p-1 rounded-lg">
+            <button 
+                *ngFor="let metric of availableMetrics"
+                (click)="setCurrentMetric(metric.key)"
+                [class]="'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ' + 
+                         (currentMetric === metric.key 
+                           ? 'bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-0 shadow-sm' 
+                           : 'text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-surface-0')">
+                {{ metric.label }}
+            </button>
+        </div>
+        <!-- ...gráfico y resto del contenido... -->
+        <!-- Active Parameter Display -->
+        <div *ngIf="getCurrentMetric() as currentMetric">
+            <!-- Current Value and Chart Title -->
+            <div class="mb-4">
+                <h3 class="text-lg font-medium text-surface-900 dark:text-surface-0 mb-1">
+                    {{ currentMetric.label }} en el tiempo
+                </h3>
+                <div class="text-3xl font-bold text-surface-900 dark:text-surface-0">
+                    {{ formatValue(currentMetric.currentValue, currentMetric.unit) }}{{ currentMetric.unit }}
+                </div>
             </div>
+
+            <!-- Chart -->
+            <div class="mb-6" style="height: 300px;">
+                <p-chart 
+                    type="line" 
+                    [data]="currentMetric.chartData"
+                    [options]="currentMetric.chartOptions"
+                    width="100%"
+                    height="300px">
+                </p-chart>
+            </div>
+
             
-            <div class="trade-card-container">
-                <mat-card>
-                    <mat-card-header>
-                        <mat-card-title>Trading Options</mat-card-title>
-                        <mat-card-subtitle>Configure your trade parameters</mat-card-subtitle>
-                    </mat-card-header>
-                    
-                    <mat-card-content>
-                        <form [formGroup]="tradeForm" class="trade-form">
-
-                            
-                            
-                            <!-- Token Selector -->
-                            <mat-form-field appearance="outline" class="full-width">
-                                <mat-label>Select a Token</mat-label>
-                                <mat-select formControlName="tokenId">
-                                    <mat-option *ngFor="let token of tokens" [value]="token">
-                                        {{token}}
-                                    </mat-option>
-                                </mat-select>
-                                <mat-error *ngIf="tradeForm.get('tokenId')?.invalid">
-                                    Please select a token
-                                </mat-error>
-                            </mat-form-field>
-                            
-                            <!-- Trade Amount -->
-                            <mat-form-field appearance="outline" class="full-width">
-                                <mat-label>Trade Amount (USD)</mat-label>
-                                <input matInput type="number" formControlName="amount">
-                                <span matTextSuffix>$</span>
-                                <mat-error *ngIf="tradeForm.get('amount')?.hasError('required')">
-                                    Amount is required
-                                </mat-error>
-                                <mat-error *ngIf="tradeForm.get('amount')?.hasError('min')">
-                                    Minimum amount is 1
-                                </mat-error>
-                            </mat-form-field>
-
-                            <!-- Threshold Slider -->
-                            <div class="form-field">
-                                <label>
-                                    Trading Threshold: {{tradeForm.get('percentThreshold')?.value}}
-                                    <mat-icon aria-hidden="false" aria-label="Example home icon" fontIcon="help" matTooltip="Minimum change that is a fraction of current price to trigger a trade "></mat-icon>
-                                </label>
-                                <mat-slider 
-                                    min="0" 
-                                    max="1" 
-                                    step="0.01" 
-                                    discrete 
-                                    showTickMarks
-                                    class="full-width">
-                                    <input matSliderThumb formControlName="percentThreshold">
-                                </mat-slider>
-                            </div>
-                            
-                            <!-- Trading Period Datepicker -->
-                            <mat-form-field appearance="outline" class="full-width">
-                                <mat-label>Trading Period End</mat-label>
-                                <input matInput [matDatepicker]="picker" formControlName="tradingPeriod">
-                                <mat-hint>End date for automated trading</mat-hint>
-                                <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-                                <mat-datepicker #picker></mat-datepicker>
-                                <mat-error *ngIf="tradeForm.get('tradingPeriod')?.invalid">
-                                    Please select a valid date
-                                </mat-error>
-                            </mat-form-field>
-                        </form>
-                    </mat-card-content>
-                    
-                    <mat-card-actions align="end">
-                        <button mat-button color="primary">RESET</button>
-                        <button mat-raised-button color="primary" (click)="trade()" [disabled]="tradeForm.invalid">
-                            EXECUTE TRADE
-                        </button>
-                    </mat-card-actions>
-                </mat-card>
-            </div>
-        </div>
-        
-        <div class="metric-selectors">
-            <h3>Performance Metrics</h3>
-            <mat-radio-group aria-label="Select metric">
-                <mat-radio-button value="1">ROI</mat-radio-button>
-                <mat-radio-button value="2">Absolute Error</mat-radio-button>
-                <mat-radio-button value="3">Win/Loss Ratio</mat-radio-button>
-                <mat-radio-button value="4">Sharpe Ratio</mat-radio-button>
-                <mat-radio-button value="5">Max Drawdown</mat-radio-button>
-            </mat-radio-group>
-        </div>
-        
-        <div class="loading-indicator" *ngIf="!multi || !multi.length">
-            <p>Loading chart data...</p>
-        </div>
-        
-        <div class="description-container" *ngIf="selected_bot.description">
-            <mat-card>
-                <mat-card-header>
-                    <mat-card-title>Bot Description</mat-card-title>
-                </mat-card-header>
-                <mat-card-content>
-                    <p>{{selected_bot.description || 'No description available'}}</p>
-                </mat-card-content>
-            </mat-card>
-        </div>
     </div>
 </div>
-
