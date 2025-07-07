@@ -48,7 +48,6 @@ export class ExploreAgentComponent implements OnInit {
   subscriptionForm: FormGroup;
   filteredData: MetricData[] = [];
   loading: boolean = true;
-  chartData: any;
 
   riskLevels = [
     { label: 'Conservative', value: 'conservative' },
@@ -323,7 +322,7 @@ export class ExploreAgentComponent implements OnInit {
           }
         },
         scales: {
-          x: {
+          xAxes: {
             display: true,
             ticks: {
               color: textColorSecondary,
@@ -333,7 +332,7 @@ export class ExploreAgentComponent implements OnInit {
               display: false
             }
           },
-          y: {
+          yAxes: {
             display: true,
             ticks: {
               color: textColorSecondary,
