@@ -4,15 +4,19 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import Aura from '@primeng/themes/aura';
 import { providePrimeNG } from 'primeng/config';
 import { provideHttpClient } from '@angular/common/http';
+import MyPreset from './my_preset';
 
 import { routes } from './app.routes';
 
+
+
 export const appConfig: ApplicationConfig = {
+  
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }), 
     provideRouter(routes), 
     provideHttpClient(),
     provideAnimations(),
-    providePrimeNG({ theme: { preset: Aura, options: { darkModeSelector: '.app-dark' } } })
+    providePrimeNG({ theme: { preset: MyPreset, options: { darkModeSelector: '.app-dark' } } })
   ]
 };

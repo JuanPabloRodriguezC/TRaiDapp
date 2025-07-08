@@ -3,7 +3,7 @@ import { BrowseComponent } from './client/pages/browse/browse.component';
 import { MainpageComponent } from './client/pages/mainpage/mainpage.component';
 import { DashboardComponent } from './client/pages/dashboard/dashboard.component';
 import { AppLayoutComponent } from './Layout/Componentes/layout/layout.component';
-import { ExploreBotComponent } from './client/pages/explore-bot/explore-bot.component';
+import { ExploreAgentComponent } from './client/pages/explore-bot/explore-agent.component';
 
 export const routes: Routes = [
     { path: '', redirectTo: 'landing-page', pathMatch: 'full' },
@@ -14,7 +14,7 @@ export const routes: Routes = [
             {path: "landing-page", component:MainpageComponent},
             {path: "browse", component:BrowseComponent},
             {path: "dashboard", component:DashboardComponent},
-            {path: "explore-bot/:id", component:ExploreBotComponent}
+            {path: "explore-agent/:id", component:ExploreAgentComponent}
         ]
     }
 ];

@@ -51,8 +51,8 @@ export class DashboardComponent implements OnInit{
     };
   trades: TransactionData[] = [];
   agents: TradingAgent[] = [];
-  backgroundColors: string[] = ['--p-emerald-500','--p-green-500', '--p-lime-500', '--p-red-500', '--p-orange-500', '--p-amber-500' ];
-  backgroundHoverColors: string[] = ['--p-emerald-400','--p-green-400', '--p-lime-400', '--p-red-400', '--p-orange-400', '--p-amber-400' ]
+  backgroundColors: string[] = ['#003f5c','#2f4b7c', '#665191', '#a05195', '#d45087', '#f95d6a', '#ff7c43', '#ffa600' ];
+  backgroundHoverColors: string[] = ['#003f5c','#2f4b7c', '#665191', '#a05195', '#d45087', '#f95d6a', '#ff7c43', '#ffa600' ]
 
   constructor(
     private router: Router, 
@@ -86,8 +86,8 @@ export class DashboardComponent implements OnInit{
           const alloc_datasets: any[] = [
             {
               data: alloc_data,
-              backgroundColor: this.backgroundColors.slice(- alloc_labels.length).map(c => documentStyle.getPropertyValue(c)),
-              hoverBackgroundColor: this.backgroundHoverColors.slice(- alloc_labels.length).map(c => documentStyle.getPropertyValue(c)),
+              backgroundColor: this.backgroundColors.slice(0, alloc_labels.length),
+              hoverBackgroundColor: this.backgroundHoverColors.slice(0, alloc_labels.length),
             }
           ];
           

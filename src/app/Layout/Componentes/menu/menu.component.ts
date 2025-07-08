@@ -16,16 +16,12 @@ export class AppMenuComponent {
 
   clienteMenu: MenuItem[] = [
     {
-      label: 'Home',
-      items: [{ label: 'Landing Page', icon: 'pi pi-fw pi-home', routerLink: ['/main/landing-page'] }]
-    },
-    {
-      label: 'Tu Invernadero',
       items: [
+        { label: 'Home', icon: 'pi pi-fw pi-home', routerLink: ['/main/landing-page'] },
         { label: 'Browse', icon: 'pi pi-fw pi-sliders-v', routerLink: ['/main/browse'] },
         { label: 'Dashboard', icon: 'pi pi-fw pi-mobile', class: 'rotated-icon', routerLink: ['/main/dashboard'] },
       ]
-    },
+    }
   ];
 
 
