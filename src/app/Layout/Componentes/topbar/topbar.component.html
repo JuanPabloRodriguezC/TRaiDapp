@@ -14,20 +14,32 @@
                 <button type="button" class="layout-topbar-action" (click)="toggleDarkMode()">
                     <i [ngClass]="{ 'pi ': true, 'pi-moon': layoutService.isDarkTheme(), 'pi-sun': !layoutService.isDarkTheme() }"></i>
                 </button>
-                
             </div>
-            <button class="layout-topbar-menu-button layout-topbar-action" pStyleClass="@next" enterFromClass="hidden" enterActiveClass="animate-scalein" leaveToClass="hidden" leaveActiveClass="animate-fadeout" [hideOnOutsideClick]="true">
-                <i class="pi pi-ellipsis-v"></i>
-            </button>
 
-            <div class="layout-topbar-menu hidden lg:block">
-                <div class="layout-topbar-menu-content">
-                    <p-menu #menu [popup]="true" [model]="logoutItem"></p-menu>
-                    <button type="button" class="layout-topbar-action" (click)="menu.toggle($event)">
-                        <i class="pi pi-user"></i>
-                        <span>Profile</span>
-                    </button>
-                </div>
+            <!-- Wallet Section -->
+            <div class="flex items-center">
+                <!-- Connected Wallet Button with Menu -->
+                <button 
+                    type="button" 
+                    class="layout-topbar-action flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                    *ngIf="isWalletConnected"
+                    (click)="walletMenu.toggle($event)">
+                    <i class="pi pi-wallet"></i>
+                    <span>{{ formatWalletAddress(walletAddress) }}</span>
+                </button>
+
+                <!-- Connect Wallet Button -->
+                <button 
+                    type="button" 
+                    class="layout-topbar-action flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                    *ngIf="!isWalletConnected"
+                    (click)="connectWallet()">
+                    <i class="pi pi-wallet"></i>
+                    <span>Connect Wallet</span>
+                </button>
+
+                <!-- Dropdown Menu for Disconnect -->
+                <p-menu #walletMenu [popup]="true" [model]="walletMenuItems"></p-menu>
             </div>
         </div>
     </div>`
