@@ -1,13 +1,18 @@
 import { Component } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import {MatDividerModule} from '@angular/material/divider';
-import { Router } from '@angular/router';
-import { MatIconModule } from '@angular/material/icon';
+import { Router, RouterModule } from '@angular/router';
+import { ButtonModule } from 'primeng/button';
+import { RippleModule } from 'primeng/ripple';
+import { DividerModule } from 'primeng/divider';
 
 
 @Component({
   selector: 'app-mainpage',
-  imports: [MatButtonModule, MatDividerModule, MatIconModule],
+  imports: [
+    ButtonModule,
+    RippleModule,
+    DividerModule,
+    RouterModule
+  ],
   templateUrl: './mainpage.component.html',
   styleUrl: './mainpage.component.scss'
 })
@@ -15,8 +20,8 @@ export class MainpageComponent {
 
   constructor(private router: Router){}
 
-  goToBrowseBots(){
-    this.router.navigate(['/browse']);
+  goToBrowseAgents(){
+    this.router.navigate(['/main/browse']);
   }
 
   // Smooth scroll to any section

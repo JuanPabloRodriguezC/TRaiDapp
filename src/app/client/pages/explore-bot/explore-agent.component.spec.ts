@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { SidenavComponent } from './sidenav.component';
+import { ExploreAgentComponent } from './explore-agent.component';
 
-describe('SidenavComponent', () => {
-  let component: SidenavComponent;
-  let fixture: ComponentFixture<SidenavComponent>;
+describe('ExploreBotComponent', () => {
+  let component: ExploreAgentComponent;
+  let fixture: ComponentFixture<ExploreAgentComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SidenavComponent]
+      imports: [ExploreAgentComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(SidenavComponent);
+    fixture = TestBed.createComponent(ExploreAgentComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

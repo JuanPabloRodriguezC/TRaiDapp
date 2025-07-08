@@ -1,10 +1,8 @@
-export interface TradingBot {
-  id: number;
-  name: string;
-  date_uploaded: string;
-  description: string;
-  sub_id: number;
-  error: number;
+export interface TradingAgent {
+  id: number,
+  name: string,
+  strategy: string,
+  created_at: string
 }
 
 export interface Subscription {
@@ -27,4 +25,10 @@ export interface TransactionData {
   token_id: string,
   amount: number,
   timestamp: string,
+}
+
+export interface MetricData {
+  timestamp: string;
+  metric_name: string;
+  metric_value: number;
 }

@@ -1,0 +1,45 @@
+<div class="layout-topbar">
+        <div class="layout-topbar-logo-container">
+            <button class="layout-menu-button layout-topbar-action" (click)="layoutService.onMenuToggle()">
+                <i class="pi pi-bars"></i>
+            </button>
+            <a class="layout-topbar-logo" [routerLink]= "'/main/landing-page'">
+                <img src="assets/logos/sn-linear.png" alt="Company Logo" class="logo">
+            </a>
+        </div>
+
+        <div class="layout-topbar-actions">
+        
+            <div class="layout-config-menu">
+                <button type="button" class="layout-topbar-action" (click)="toggleDarkMode()">
+                    <i [ngClass]="{ 'pi ': true, 'pi-moon': layoutService.isDarkTheme(), 'pi-sun': !layoutService.isDarkTheme() }"></i>
+                </button>
+            </div>
+
+            <!-- Wallet Section -->
+            <div class="flex items-center">
+                <!-- Connected Wallet Button with Menu -->
+                <button 
+                    type="button" 
+                    class="layout-topbar-action flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                    *ngIf="isWalletConnected"
+                    (click)="walletMenu.toggle($event)">
+                    <i class="pi pi-wallet"></i>
+                    <span>{{ formatWalletAddress(walletAddress) }}</span>
+                </button>
+
+                <!-- Connect Wallet Button -->
+                <button 
+                    type="button" 
+                    class="layout-topbar-action flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                    *ngIf="!isWalletConnected"
+                    (click)="connectWallet()">
+                    <i class="pi pi-wallet"></i>
+                    <span>Connect Wallet</span>
+                </button>
+
+                <!-- Dropdown Menu for Disconnect -->
+                <p-menu #walletMenu [popup]="true" [model]="walletMenuItems"></p-menu>
+            </div>
+        </div>
+    </div>`

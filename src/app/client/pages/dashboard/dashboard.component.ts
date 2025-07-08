@@ -1,202 +1,206 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { ApiService } from '../../../Services/db_api.service';
-import { WalletConnectionService } from '../../../Services/wallet-connection.service';
-import { Breakpoints, BreakpointObserver } from '@angular/cdk/layout';
 import { map } from 'rxjs/operators';
-import { AssetAllocationData } from '../../Interfaces/bot';
-import { AsyncPipe } from '@angular/common';
-import { MatGridListModule } from '@angular/material/grid-list';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatTableModule } from '@angular/material/table';
-import { MatCardModule } from '@angular/material/card';
-import { NgxChartsModule } from '@swimlane/ngx-charts';
+import { FluidModule } from 'primeng/fluid';
+import { ButtonModule } from 'primeng/button';
+import { ChartModule } from 'primeng/chart';
+import { TableModule } from 'primeng/table';
+import { AssetAllocationData, TransactionData, TradingAgent } from '../../Interfaces/bot';
+import { WalletConnectionService } from '../../../Services/wallet-connection.service';
+import { ApiService } from '../../../Services/db_api.service';
+import { forkJoin } from 'rxjs';
 
+
+interface Chart {
+  key: string;
+  label: string;
+  chartData: any;
+  chartOptions: any;
+  loading?: boolean;
+}
 
 @Component({
   selector: 'app-dashboard',
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
   standalone: true,
-  imports: [
-    AsyncPipe,
-    MatGridListModule,
-    MatMenuModule,
-    MatIconModule,
-    MatButtonModule,
-    MatCardModule,
-    MatTableModule,
-    NgxChartsModule
+  imports: [ 
+    FluidModule,
+    ButtonModule,
+    ChartModule,
+    TableModule
   ]
 })
 export class DashboardComponent implements OnInit{
-  private breakpointObserver = inject(BreakpointObserver);
   displayedColumns: string[] = ['timestamp', 'target token', 'amount' ];
   botsDisplayedColumns: string[] = ['name', 'status', 'performance', 'lastTrade'];
-  pie_chart_data: any[] = [];
-  tableData: any[] = [];
-  timeGraphData: any[] = [];
-  botsTableData: any[] = [];
-  
+  performanceChart: Chart  = 
+    { 
+      key: 'performance', 
+      label: 'Total Portfolio Value',
+      chartData: {} as any,
+      chartOptions: {} as any,
+      loading: true
+    }
+  allocationChart: Chart =  { 
+      key: 'asset_allocation', 
+      label: 'Current Asset Allocations',
+      chartData: {} as any,
+      chartOptions: {} as any,
+      loading: true
+    };
+  trades: TransactionData[] = [];
+  agents: TradingAgent[] = [];
+  backgroundColors: string[] = ['#003f5c','#2f4b7c', '#665191', '#a05195', '#d45087', '#f95d6a', '#ff7c43', '#ffa600' ];
+  backgroundHoverColors: string[] = ['#003f5c','#2f4b7c', '#665191', '#a05195', '#d45087', '#f95d6a', '#ff7c43', '#ffa600' ]
 
-  view: [number, number] = [500, 270];
-  timeGraphView: [number, number] = [1100, 450];
-
-  // options
-  showLegend: boolean = true;
-  showLabels: boolean = true;
-  label: string = 'Partial';
-
-  
-
-  colorScheme : any = {
-    domain: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE']
-  };
-
-
-  /** Based on the screen size, switch from standard to one column per row */
-  cards = this.breakpointObserver.observe(Breakpoints.Handset).pipe(
-    map(({ matches }) => {
-      if (matches) {
-        return [
-          { title: 'Card 1', cols: 1, rows: 1 },
-          { title: 'Card 2', cols: 1, rows: 1 },
-          { title: 'Card 3', cols: 1, rows: 1 },
-          { title: 'Card 4', cols: 1, rows: 1 }
-        ];
-      }
-
-      return [
-        { title: 'Time Performance', cols: 2, rows: 2 },
-        { title: 'Asset Allocation', cols: 1, rows: 1 },
-        { title: 'Recent Trades', cols: 1, rows: 2 },
-        { title: 'Bots', cols: 1, rows: 1 }
-      ];
-    })
-  );
   constructor(
     private router: Router, 
     private api_service: ApiService,
     private walletService: WalletConnectionService
   ){}
 
-  onSelect(data: any): void {
-    console.log('Item clicked', JSON.parse(JSON.stringify(data)));
-  }
-
-  onActivate(data: any): void {
-    console.log('Activate', JSON.parse(JSON.stringify(data)));
-  }
-
-  onDeactivate(data: any): void {
-    console.log('Deactivate', JSON.parse(JSON.stringify(data)));
-  }
-
   ngOnInit(): void {
     this.walletService.checkWalletConnection();
     
     if (!this.walletService.isWalletConnected) {
-      return; // Don't load data if wallet not connected
+      return;
     }
-    
-    this.initializeMockData();
-    let address : string = localStorage.getItem('walletAddress') || '';
-    
-    this.api_service.getAllocData(address)
-      .pipe(
-        map(
-        (data: AssetAllocationData[]) => {
-          return [
-              data.map(item => ({
-                name: item.token_id,
-                value: item.amount,
-              }))
-            ]   
-        })
-      ).subscribe({
-        next: (res) => {
-          this.pie_chart_data = res[0];
+    this.loadData();
+    this.initCharts();
+  }
+
+  private loadData(): void {
+    const documentStyle = getComputedStyle(document.documentElement);
+    let address : string = localStorage.getItem('walletAddress') || '';    
+    forkJoin({
+      alloc: this.api_service.getAllocData(address),
+      transactions: this.api_service.getTransactionsData(address),
+      performance: this.api_service.getPortfolioData(1),
+      agents: this.api_service.getAgents()
+    })
+    .subscribe({
+        next: ({ alloc, transactions, performance, agents }) => {
+          const alloc_labels = alloc.map(d => d.token_id);
+          const alloc_data = alloc.map(d => d.amount);
+          const alloc_datasets: any[] = [
+            {
+              data: alloc_data,
+              backgroundColor: this.backgroundColors.slice(0, alloc_labels.length),
+              hoverBackgroundColor: this.backgroundHoverColors.slice(0, alloc_labels.length),
+            }
+          ];
+          
+          this.allocationChart.chartData = {
+            labels: alloc_labels,
+            datasets: alloc_datasets
+          };
+          console.log(this.allocationChart.chartData);
+          const performance_labels = performance.map(d => d.timestamp);
+          const performance_data = performance.map(d => d.metric_value);
+          const performance_datasets: any[] = [
+            {
+              label: 'Portfolio Performance',
+              data: performance_data,
+              fill: false,
+              borderColor: '#ef4444',
+              backgroundColor: '#ef4444',
+              tension: 0.4,
+              borderWidth: 2,
+              pointRadius: 0,
+              pointHoverRadius: 4
+            }
+          ];
+          
+          this.performanceChart.chartData = {
+            labels: performance_labels,
+            datasets: performance_datasets
+          };
+
+          this.trades = transactions;
+          this.agents = agents;
+
         },
         error: (err) => {
           console.error('Error fetching allocation data:', err);
         }
       }
       )
-
-    this.api_service.getTableData(address).subscribe({
-      next: (res) => {
-        this.tableData = res;
-        console.log('Table data:', this.tableData);
-      }
-      , error: (err) => {
-    }})
   }
+  initCharts(){
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue('--text-color') || '#64748b';
+    const textColorSecondary = documentStyle.getPropertyValue('--text-color-secondary') || '#94a3b8';
+    const surfaceBorder = documentStyle.getPropertyValue('--surface-border') || '#e2e8f0';
 
-  private initializeMockData(): void {
-    // Mock data for time performance graph
-    this.timeGraphData = [
-      {
-        name: 'Portfolio Value',
-        series: [
-          { name: 'Jan 2024', value: 10000 },
-          { name: 'Feb 2024', value: 12500 },
-          { name: 'Mar 2024', value: 11800 },
-          { name: 'Apr 2024', value: 15200 },
-          { name: 'May 2024', value: 14900 },
-          { name: 'Jun 2024', value: 18300 },
-          { name: 'Jul 2024', value: 17650 },
-          { name: 'Aug 2024', value: 20100 },
-          { name: 'Sep 2024', value: 19800 },
-          { name: 'Oct 2024', value: 22400 },
-          { name: 'Nov 2024', value: 21900 },
-          { name: 'Dec 2024', value: 25600 }
-        ]
-      }
-    ];
-    
-    console.log('Time graph data initialized:', this.timeGraphData);
-
-    // Mock data for bots table
-    this.botsTableData = [
-      {
-        name: 'DCA Bot',
-        status: 'Active',
-        performance: '+12.5%',
-        lastTrade: '2024-12-20'
-      },
-      {
-        name: 'Arbitrage Bot',
-        status: 'Active',
-        performance: '+8.2%',
-        lastTrade: '2024-12-19'
-      },
-      {
-        name: 'Grid Trading Bot',
-        status: 'Paused',
-        performance: '+15.7%',
-        lastTrade: '2024-12-18'
-      },
-      {
-        name: 'Momentum Bot',
-        status: 'Active',
-        performance: '+6.9%',
-        lastTrade: '2024-12-20'
-      },
-      {
-        name: 'Mean Reversion Bot',
-        status: 'Inactive',
-        performance: '-2.1%',
-        lastTrade: '2024-12-15'
-      }
-    ]
+    this.performanceChart.chartOptions = {
+        maintainAspectRatio: false,
+        aspectRatio: 0.6,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              color: textColorSecondary,
+              usePointStyle: true,
+              filter: function(legendItem: any) {
+                return legendItem.text !== 'Portfolio Valua';
+              }
+            }
+          }
+        },
+        scales: {
+          xAxes: {
+            ticks: {
+              color: textColorSecondary,
+              maxTicksLimit: 6
+            },
+            scaleLabel: {
+              display: true,
+              labelString: 'Value (USD)'
+            },
+            grid: {
+              display: false
+            }
+          },
+          yAxes: {
+            ticks: {
+              color: textColorSecondary,
+              callback: function(value: any) {
+                Math.round(value);
+              }
+            },
+            scaleLabel: {
+              display: true,
+              labelString: 'Date'
+            },
+            grid: {
+              color: surfaceBorder,
+              drawBorder: false
+            }
+          }
+        },
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        }
+      };
+    this.allocationChart.chartOptions = {
+        cutout: '60%',
+        plugins: {
+            legend: {
+                labels: {
+                    color: textColor
+                }
+            }
+        }  
+      };
   }
 
   connectWallet(): void {
     this.walletService.connectWallet().then(() => {
       if (this.walletService.isWalletConnected) {
-        this.ngOnInit(); // Reload dashboard data
+        this.ngOnInit();
       }
     });
   }
@@ -205,9 +209,5 @@ export class DashboardComponent implements OnInit{
     return this.walletService.isWalletConnected;
   }
 
-}
-
-function initializeMockData() {
-  throw new Error('Function not implemented.');
 }
 
