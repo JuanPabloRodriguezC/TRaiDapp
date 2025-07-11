@@ -1,15 +1,10 @@
 pub mod interfaces{
-    pub mod IMockPragma;
     pub mod ITraidingAgents;
     pub mod IERC20;
-    pub mod IJediSwap;
 }
 
 pub mod mocks{
     pub mod MockIERC20;
-    pub mod MockPragma;
-    pub mod MockJedi;
-    
 }
 
 pub mod utils{

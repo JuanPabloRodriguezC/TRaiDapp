@@ -1,5 +1,5 @@
 #[starknet::contract]
-mod TraidingAgents {
+pub mod TraidingAgents {
     use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
     use crate::interfaces::ITraidingAgents::{ IAgentManager };
     use crate::interfaces::IERC20::{ IERC20Dispatcher, IERC20DispatcherTrait };
@@ -9,7 +9,7 @@ mod TraidingAgents {
     };
     use crate::utils::events::{
         AgentSubscribed, AgentDecision, TradeExecuted, BalanceUpdated, AuthorizationChanged,
-        ReservationMade, ReservationReleased, TradeSettled 
+        ReservationMade, ReservationReleased, TradeSettled, FeesAllocated, PlatformFeesWithdrawn
     };
     use starknet::storage::{ StoragePointerReadAccess, StoragePointerWriteAccess, Map, StoragePathEntry };
 
@@ -23,15 +23,19 @@ mod TraidingAgents {
         agent_reservations: Map<(ContractAddress, felt252, ContractAddress), u256>,
         
         // Trading decisions
+        authorized_recorders: Map<ContractAddress, bool>, // Backend services that can record decisions
         decisions: Map<u32, TradeDecision>,
         decision_counter: u32,
         agent_performance: Map<felt252, AgentPerformance>,
         admin: ContractAddress,
+        withdrawable_balances: Map<(ContractAddress, ContractAddress), u256>,
+        platform_fee_rate: u256, // e.g., 250 = 2.5%
+        platform_treasury: ContractAddress,
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
+    pub enum Event {
         AgentSubscribed: AgentSubscribed,
         AgentDecision: AgentDecision,
         TradeExecuted: TradeExecuted,
@@ -40,6 +44,8 @@ mod TraidingAgents {
         ReservationMade: ReservationMade,
         ReservationReleased: ReservationReleased,
         TradeSettled: TradeSettled,
+        FeesAllocated: FeesAllocated,
+        PlatformFeesWithdrawn: PlatformFeesWithdrawn,
     }
 
     #[constructor]
@@ -105,7 +111,7 @@ mod TraidingAgents {
                 agent_id,
                 user,
                 user_config,
-                daily_api_cost: 0,
+                daily_api_cost: 30000,
                 daily_trades: 0,
                 last_reset_day: current_time / 86400,
                 subscribed_at: current_time,
@@ -180,8 +186,6 @@ mod TraidingAgents {
             let mut balance = self.user_balances.entry((user, token_address)).read();
             
             assert(balance.available_balance >= amount, 'Insufficient available balance');
-        
-            
             
             // Execute token transfer
             let token = IERC20Dispatcher { contract_address: token_address };
@@ -276,7 +280,7 @@ mod TraidingAgents {
             to_amount: u256
         ) {
             // This is called after a successful DEX trade to update balances
-            
+            assert(self.authorized_recorders.entry(get_caller_address()).read(), 'Not authorized to execute');
             // Release reservation from the "from" token
             let current_from_reservation = self.agent_reservations.entry((user, agent_id, from_token)).read();
             let release_amount = if current_from_reservation >= from_amount { from_amount } else { current_from_reservation };
@@ -315,6 +319,7 @@ mod TraidingAgents {
             confidence: u32,
             reasoning_hash: felt252
         ) {
+            assert(self.authorized_recorders.entry(get_caller_address()).read(), 'Not authorized to execute');
             let current_time = get_block_timestamp();
             let decision_id = self.decision_counter.read() + 1;
             self.decision_counter.write(decision_id);
@@ -349,6 +354,7 @@ mod TraidingAgents {
             success: bool,
             actual_amount: u256
         ) {
+            assert(self.authorized_recorders.entry(get_caller_address()).read(), 'Not authorized to execute');
             let mut decision = self.decisions.entry(decision_id).read();
             let user = decision.user;
             decision.executed = true;
@@ -362,12 +368,23 @@ mod TraidingAgents {
             });
         }
 
+        fn authorize_decision_recorder(
+            ref self: ContractState,
+            recorder: ContractAddress,
+            authorized: bool
+        ) {
+            assert(get_caller_address() == self.admin.read(), 'Only admin can authorize');
+            self.authorized_recorders.entry(recorder).write(authorized);
+        }
+
         fn update_agent_performance(
             ref self: ContractState,
             agent_id: felt252,
             pnl_change: i128,
-            was_successful: bool
+            was_successful: bool,
+            confidence: u32
         ) {
+            assert(self.authorized_recorders.entry(get_caller_address()).read(), 'Not authorized to execute');
             let mut performance = self.agent_performance.entry(agent_id).read();
             
             performance.total_decisions += 1;
@@ -376,6 +393,9 @@ mod TraidingAgents {
             }
             performance.total_pnl += pnl_change;
             performance.last_updated = get_block_timestamp();
+            let total_confidence = performance.avg_confidence * performance.total_decisions;
+            let new_total_confidence = total_confidence + confidence;
+            performance.avg_confidence = new_total_confidence / performance.total_decisions;
             
             self.agent_performance.entry(agent_id).write(performance);
         }
@@ -416,7 +436,6 @@ mod TraidingAgents {
             if amount > available {
                 return false;
             }
-            
             true
         }
 
@@ -457,6 +476,8 @@ mod TraidingAgents {
             user: ContractAddress,
             agent_id: felt252
         ) -> UserSubscription {
+            let caller = get_caller_address();
+            assert(caller == user || caller == self.admin.read() || self.authorized_recorders.entry(caller).read(), 'caller not authorized');
             self.user_subscriptions.entry((user, agent_id)).read()
         }
 
@@ -465,6 +486,8 @@ mod TraidingAgents {
             user: ContractAddress,
             token_address: ContractAddress
         ) -> UserBalance {
+            let caller = get_caller_address();
+            assert(caller == user || caller == self.admin.read() || self.authorized_recorders.entry(caller).read(), 'caller not authorized');
             self.user_balances.entry((user, token_address)).read()
         }
 
@@ -483,6 +506,7 @@ mod TraidingAgents {
             let user = get_caller_address();
             let mut subscription = self.user_subscriptions.entry((user, agent_id)).read();
             
+            
             // Verify agent still exists and validate new config
             let agent_config = self.agent_configs.entry(agent_id).read();
             assert(agent_config.is_active, 'Agent not active');
@@ -494,6 +518,61 @@ mod TraidingAgents {
             
             subscription.user_config = user_config;
             self.user_subscriptions.entry((user, agent_id)).write(subscription);
+        }
+
+        // Calculate and allocate fees after successful trade
+        fn settle_trade_with_fees(
+            ref self: ContractState,
+            user: ContractAddress,
+            agent_id: felt252,
+            profit_amount: u256,
+            token_address: ContractAddress
+        ) {
+            // Calculate platform fee (e.g., 2.5% of profit)
+            let platform_fee: u256 = (profit_amount * self.platform_fee_rate.read()) / 10000;
+            let user_share: u256 = profit_amount - platform_fee;
+            
+            // Allocate to withdrawable balances (don't send immediately)
+            let treasury = self.platform_treasury.read();
+            let mut treasury_balance = self.withdrawable_balances.entry((treasury, token_address)).read();
+            treasury_balance += platform_fee;
+            self.withdrawable_balances.entry((treasury, token_address)).write(treasury_balance);
+            
+            // Update user balance
+            let mut user_balance = self.user_balances.entry((user, token_address)).read();
+            user_balance.total_balance += user_share;
+            user_balance.available_balance += user_share;
+            self.user_balances.entry((user, token_address)).write(user_balance);
+            
+            self.emit(FeesAllocated { 
+                user, 
+                platform_fee, 
+                user_share, 
+                token_address 
+            });
+        }
+
+        // Platform withdraws accumulated fees
+        fn withdraw_platform_fees(
+            ref self: ContractState,
+            token_address: ContractAddress,
+            amount: u256
+        ) {
+            let caller: ContractAddress = get_caller_address();
+            let treasury = self.platform_treasury.read();
+            assert(caller == treasury, 'Only treasury can withdraw');
+            
+            let mut withdrawable = self.withdrawable_balances.entry((treasury, token_address)).read();
+            assert(withdrawable >= amount, 'Amount exceed amount available');
+            
+            withdrawable -= amount;
+            self.withdrawable_balances.entry((treasury, token_address)).write(withdrawable);
+            
+            // Execute transfer
+            let token = IERC20Dispatcher { contract_address: token_address };
+            token.transfer(treasury, amount);
+            
+            self.emit(PlatformFeesWithdrawn { token_address, amount });
         }
     }
 }

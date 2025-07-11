@@ -65,3 +65,17 @@ pub struct TradeSettled {
     pub from_amount: u256,
     pub to_amount: u256,
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct FeesAllocated {
+    pub user: ContractAddress, 
+    pub platform_fee: u256, 
+    pub user_share: u256, 
+    pub token_address: ContractAddress 
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PlatformFeesWithdrawn {
+    pub token_address: ContractAddress, 
+    pub amount: u256
+}

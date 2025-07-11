@@ -93,13 +93,20 @@ pub trait IAgentManager<TContractState> {
         success: bool,
         actual_amount: u256
     );
+
+    fn authorize_decision_recorder(
+        ref self: TContractState,
+        recorder: ContractAddress,
+        authorized: bool
+    );
     
     // Performance Tracking
     fn update_agent_performance(
         ref self: TContractState,
         agent_id: felt252,
         pnl_change: i128,
-        was_successful: bool
+        was_successful: bool,
+        confidence: u32
     );
     
     // Query Functions
@@ -140,4 +147,18 @@ pub trait IAgentManager<TContractState> {
         user: ContractAddress,
         agent_id: felt252
     ) -> (u32, u256);
+
+    fn settle_trade_with_fees(
+            ref self: TContractState,
+            user: ContractAddress,
+            agent_id: felt252,
+            profit_amount: u256,
+            token_address: ContractAddress
+    )-> ();
+
+    fn withdraw_platform_fees(
+        ref self: TContractState,
+        token_address: ContractAddress,
+        amount: u256
+    ) -> ();
 }
