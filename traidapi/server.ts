@@ -1,13 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Pool } from 'pg';
+import pg from 'pg';
 import { ServiceContainer } from './services/ServiceContainer';
 import { ContractService } from './services/ContractService';
 import { AgentService } from './services/AgentService';
 import { PredictionService } from './services/PredictionService';
 import { MarketDataService } from './services/MarketDataService';
 
+const { Pool } = pg;
 dotenv.config();
 
 // Database setup
@@ -33,7 +34,7 @@ async function initializeServices(): Promise<ServiceContainer> {
   
   const contractService = new ContractService({
     contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
-    rpcUrl: process.env['STARKNET_RPC_URL']!
+    rpcUrl: process.env['STARKNET_DEVNET']!
   });
   
   const predictionService = new PredictionService(process.env['ANTHROPIC_API_KEY']);
@@ -73,14 +74,8 @@ async function startServer() {
       next();
     });
 
-    // Import and use routes
     const agentsRouter = await import('./routes/agents');
     const contractsRouter = await import('./routes/contracts');
-    
-    app.use('/api/agents', agentsRouter.default);
-    app.use('/api/contracts', contractsRouter.default);
-    
-    // Keep existing routes
     const subsRouter = await import('./routes/subscription');
     const graphRouter = await import('./routes/graph');
     const allocRouter = await import('./routes/asset-allocations');
@@ -90,6 +85,8 @@ async function startServer() {
     app.use('/api/graphdata', graphRouter.default(pool));
     app.use('/api/allocation', allocRouter.default(pool));
     app.use('/api/transactionsdata', transactionsRouter.default(pool));
+    app.use('/api/agents', agentsRouter.default);
+    app.use('/api/contracts', contractsRouter.default);
 
     // Error handling middleware
     app.use((err: any, req: any, res: any, next: any) => {
@@ -106,3 +103,5 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+startServer();

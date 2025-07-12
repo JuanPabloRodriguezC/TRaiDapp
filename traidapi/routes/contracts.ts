@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { ContractService } from '../services/ContractService';
 
 const router = Router();
 

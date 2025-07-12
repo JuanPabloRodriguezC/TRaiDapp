@@ -1,5 +1,6 @@
-import { Contract, RpcProvider, Account, CallData, num } from 'starknet';
+import { Contract, RpcProvider, Account, CallData, num, json } from 'starknet';
 import { AgentConfig } from '../types/agent';
+import fs from 'fs';
 
 export interface ContractConfig {
   contractAddress: string;
@@ -33,11 +34,12 @@ export class ContractService {
 
   constructor(config: ContractConfig) {
     this.provider = new RpcProvider({ 
-      nodeUrl: config.rpcUrl + (process.env['INFURA_KEY'] || '') 
+      nodeUrl: config.rpcUrl
     });
     
+    const compiledContract = json.parse(fs.readFileSync('./services/abi.json').toString('ascii'));
     this.contract = new Contract(
-      [], // ABI would go here
+      compiledContract, // ABI would go here
       config.contractAddress,
       this.provider
     );
