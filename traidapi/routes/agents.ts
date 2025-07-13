@@ -1,30 +1,179 @@
 import { Router } from 'express';
-import { AgentService } from '../services/AgentService';
-import { ServiceContainer } from '../services/ServiceContainer';
 
 const router = Router();
 
-// Create and subscribe to agent
-router.post('/subscribe', async (req: any, res) => {
+// Create new agent (for agent creators)
+router.post('/create', async (req: any, res) => {
   try {
     const agentService = req.services.get('agentService');
-    const { userId, agentConfig, userConfig } = req.body;
+    const { creatorId, agentConfig } = req.body;
     
-    // Validate required fields
-    if (!userId || !agentConfig) {
-      res.status(400).json({ error: 'Missing required fields: userId, agentConfig' });
+    if (!creatorId || !agentConfig) {
+      res.status(400).json({ error: 'Missing required fields: creatorId, agentConfig' });
       return;
     }
     
-    const result = await agentService.createAndSubscribeAgent(
-      userId, 
-      agentConfig, 
-      userConfig
+    const result = await agentService.createAgent(creatorId, agentConfig);
+    res.json(result);
+  } catch (error: any) {
+    console.error('Agent creation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get available agents (marketplace)
+router.get('/', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { 
+      page = 1, 
+      limit = 20, 
+      strategy, 
+      sortBy = 'created_at' 
+    } = req.query;
+    
+    const result = await agentService.getAvailableAgents(
+      parseInt(page as string),
+      parseInt(limit as string),
+      strategy as string,
+      sortBy as 'performance' | 'created_at' | 'subscribers'
     );
     
-    res.json({ success: true, agentKey: result.agentKey, txHash: result.txHash });
+    res.json(result);
   } catch (error: any) {
-    console.error('Agent subscription error:', error);
+    console.error('Agents fetch error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get agent details
+router.get('/:agentId', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    
+    const agentDetails = await agentService.getAgentDetails(agentId);
+    res.json(agentDetails);
+  } catch (error: any) {
+    console.error('Agent details fetch error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// SUBSCRIPTION MANAGEMENT
+// ============================================================================
+
+// Prepare subscription transaction (returns data for frontend wallet)
+router.post('/:agentId/prepare-subscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userId, userConfig } = req.body;
+    
+    if (!userId || !userConfig) {
+      res.status(400).json({ error: 'Missing required fields: userId, userConfig' });
+      return;
+    }
+    
+    const prepData = await agentService.prepareSubscription(userId, agentId, userConfig);
+    res.json(prepData);
+  } catch (error: any) {
+    console.error('Subscription preparation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Confirm subscription (after frontend wallet transaction)
+router.post('/:agentId/confirm-subscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userId, txHash, userConfig } = req.body;
+    
+    if (!userId || !txHash || !userConfig) {
+      res.status(400).json({ error: 'Missing required fields: userId, txHash, userConfig' });
+      return;
+    }
+    
+    await agentService.confirmSubscription(userId, agentId, txHash, userConfig);
+    res.json({ success: true, message: 'Subscription confirmed' });
+  } catch (error: any) {
+    console.error('Subscription confirmation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Prepare unsubscription transaction
+router.post('/:agentId/prepare-unsubscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userId } = req.body;
+    
+    if (!userId) {
+      res.status(400).json({ error: 'Missing required field: userId' });
+      return;
+    }
+    
+    const prepData = await agentService.unsubscribeFromAgent(userId, agentId);
+    res.json(prepData);
+  } catch (error: any) {
+    console.error('Unsubscription preparation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Confirm unsubscription
+router.post('/:agentId/confirm-unsubscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userId, txHash } = req.body;
+    
+    if (!userId || !txHash) {
+      res.status(400).json({ error: 'Missing required fields: userId, txHash' });
+      return;
+    }
+    
+    await agentService.confirmUnsubscription(userId, agentId, txHash);
+    res.json({ success: true, message: 'Unsubscription confirmed' });
+  } catch (error: any) {
+    console.error('Unsubscription confirmation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get user's subscriptions
+router.get('/user/:userId/subscriptions', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { userId } = req.params;
+    
+    const subscriptions = await agentService.getUserSubscriptions(userId);
+    res.json(subscriptions);
+  } catch (error: any) {
+    console.error('Subscriptions fetch error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Verify subscription on contract
+router.post('/:agentId/verify-subscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userId } = req.body;
+    
+    if (!userId) {
+      res.status(400).json({ error: 'Missing required field: userId' });
+      return;
+    }
+    
+    const isVerified = await agentService.verifySubscription(userId, agentId);
+    res.json({ verified: isVerified });
+  } catch (error: any) {
+    console.error('Subscription verification error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -61,13 +210,7 @@ router.post('/:agentId/execute-trade', async (req: any, res) => {
       return;
     }
     
-    const result = await agentService.executeTrade(
-      userId, 
-      agentId, 
-      decisionId, 
-      tradeResult
-    );
-    
+    const result = await agentService.executeTrade(userId, agentId, decisionId, tradeResult);
     res.json(result);
   } catch (error: any) {
     console.error('Trade execution error:', error);
@@ -82,13 +225,7 @@ router.post('/:agentId/can-trade', async (req: any, res) => {
     const { agentId } = req.params;
     const { userId, tokenAddress, amount } = req.body;
     
-    const canTrade = await agentService.canExecuteTrade(
-      userId, 
-      agentId, 
-      tokenAddress, 
-      BigInt(amount)
-    );
-    
+    const canTrade = await agentService.canExecuteTrade(userId, agentId, tokenAddress, BigInt(amount));
     res.json({ canTrade });
   } catch (error: any) {
     console.error('Can trade check error:', error);
@@ -112,40 +249,6 @@ router.get('/:agentId/performance', async (req: any, res) => {
     res.json(performance);
   } catch (error: any) {
     console.error('Performance fetch error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get user's agent subscriptions
-router.get('/user/:userId/subscriptions', async (req: any, res) => {
-  try {
-    const agentService = req.services.get('agentService');
-    const { userId } = req.params;
-    
-    const subscriptions = await agentService.getUserSubscriptions(userId);
-    res.json(subscriptions);
-  } catch (error: any) {
-    console.error('Subscriptions fetch error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update agent authorization
-router.put('/:agentId/authorize', async (req: any, res) => {
-  try {
-    const contractService = req.services.get('contractService');
-    const { agentId } = req.params;
-    const { authorized } = req.body;
-    
-    if (typeof authorized !== 'boolean') {
-      res.status(400).json({ error: 'Missing required field: authorized (boolean)' });
-      return;
-    }
-    
-    const txHash = await contractService.authorizeAgentTrading(agentId, authorized);
-    res.json({ success: true, txHash });
-  } catch (error: any) {
-    console.error('Authorization error:', error);
     res.status(500).json({ error: error.message });
   }
 });

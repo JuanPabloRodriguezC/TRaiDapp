@@ -1,6 +1,7 @@
 export interface AgentConfig {
   id: string;
   name: string;
+  description: string;
   strategy: 'conservative' | 'aggressive' | 'swing' | 'scalping';
   predictionSources: string[];
   riskTolerance: number; // 0-1
