@@ -1,63 +1,87 @@
 use starknet::ContractAddress;
 
 #[derive(Drop, starknet::Event)]
-pub struct BotAuthorized {
-    pub model_id: u64,
-    pub user_address: ContractAddress,
-}
-
-#[derive(Drop, starknet::Event)]
-pub struct FundsDeposited {
-    pub model_id: u64,
-    pub user_address: ContractAddress,
-    pub amount: u256,
-}
-
-#[derive(Drop, starknet::Event)]
-pub struct FundsWithdrawn {
-    pub model_id: u64,
-    pub user_address: ContractAddress,
-    pub amount: u256,
-}
-
-#[derive(Drop, starknet::Event)]
-pub struct ExpiredFundsWithdrawn {
-    pub model_id: u64,
-    pub user_address: ContractAddress,
-    pub amount: u256,
-    pub expiration_timestamp: u64,
-}
-
-#[derive(Drop, starknet::Event)]
-pub struct ModelUpdated {
-    pub model_id: u64,
-    pub prediction: u128,
-}
-
-#[derive(Drop, starknet::Event)]
-pub struct ModelMetricsUpdated {
-    pub model_id: u64,
-    pub error: u256,
-    pub roi: u256,
-    pub sharpe_ratio: felt252,
-    pub max_drawdown: u256,
-    pub winning_ratio: u8,
-}
-
-#[derive(Drop, starknet::Event)]
-pub struct TradingParametersSet{
-    pub model_id: u64,
+pub struct AgentSubscribed {
     pub user: ContractAddress,
-    pub threshold_percentage: u128,
-    pub expiration_timestamp: u64,
-    pub max_slippage: u128,
+    pub agent_id: felt252,
+    pub automation_level: u8,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AgentUnsubscribed {
+    pub user: ContractAddress,
+    pub agent_id: felt252
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AgentDecision {
+    pub decision_id: u32,
+    pub agent_id: felt252,
+    pub user: ContractAddress,
+    pub action: felt252,
+    pub amount: u256,
+    pub confidence: u32,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct TradeExecuted {
-    pub model_id: u64,
+    pub decision_id: u32,
     pub user: ContractAddress,
-    pub token_in: ContractAddress,
-    pub token_out: ContractAddress,
-    pub amount_in: u256,
+    pub success: bool,
+    pub actual_amount: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct BalanceUpdated {
+    pub user: ContractAddress,
+    pub token_address: ContractAddress,
+    pub new_total_balance: u256,
+    pub new_available_balance: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AuthorizationChanged {
+    pub user: ContractAddress,
+    pub agent_id: felt252,
+    pub authorized: bool,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ReservationMade {
+    pub user: ContractAddress,
+    pub agent_id: felt252,
+    pub token_address: ContractAddress,
+    pub amount: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ReservationReleased {
+    pub user: ContractAddress,
+    pub agent_id: felt252,
+    pub token_address: ContractAddress,
+    pub amount: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct TradeSettled {
+    pub user: ContractAddress,
+    pub agent_id: felt252,
+    pub from_token: ContractAddress,
+    pub to_token: ContractAddress,
+    pub from_amount: u256,
+    pub to_amount: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct FeesAllocated {
+    pub user: ContractAddress, 
+    pub platform_fee: u256, 
+    pub user_share: u256, 
+    pub token_address: ContractAddress 
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PlatformFeesWithdrawn {
+    pub token_address: ContractAddress, 
+    pub amount: u256
 }

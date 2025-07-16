@@ -1,14 +1,52 @@
-export interface AgentConfig {
+export interface Agent{
   id: string;
   name: string;
+  description: string;
+  config: AgentConfig;
+  created_at: string;
+  updated_at: string;
+  is_active: string;
+}
+
+export interface AgentConfig {
   strategy: 'conservative' | 'aggressive' | 'swing' | 'scalping';
   predictionSources: string[];
-  riskTolerance: number; // 0-1
+  riskTolerance: number;
   maxPositionSize: number;
-  stopLossThreshold: number; // 0-1
+  stopLossThreshold: number;
   automationLevel: 'manual' | 'alert_only' | 'semi_auto' | 'full_auto';
-  maxTradesPerDay?: number;
-  maxApiCostPerDay?: string; // Wei string
+  maxTradesPerDay: number;
+  maxApiCostPerDay: number;
+}
+
+export interface UserSubscription {
+  agentId: string;
+  userId: string;
+  txHash: string;
+  subscribedAt: Date;
+  isActive: boolean;
+  contractVerified: boolean;
+  agentConfig: AgentConfig;
+}
+
+export interface UserConfig {
+  automationLevel: 'manual' | 'alert_only' | 'auto';
+  maxTradesPerDay: number;
+  maxApiCostPerDay: string;
+  riskTolerance: number;
+  maxPositionSize: string;
+  stopLossThreshold: number;
+}
+
+export interface AgentCreationResult {
+  agentId: string;
+  success: boolean;
+}
+
+export interface PrepData {
+  contractAddress: string;
+  entrypoint: string;
+  calldata: string[];
 }
 
 export interface MarketContext {
@@ -44,4 +82,25 @@ export interface MarketSentiment {
   momentum: number;
   volatility: number;
   socialScore?: number;
+}
+
+
+
+export interface ContractSubscription {
+  agentId: string;
+  user: string;
+  config: AgentConfig;
+  dailyApiCost: bigint;
+  dailyTrades: number;
+  lastResetDay: bigint;
+  subscribedAt: bigint;
+  isAuthorized: boolean;
+}
+
+export interface ContractBalance {
+  user: string;
+  tokenAddress: string;
+  balance: bigint;
+  reservedForTrading: bigint;
+  lastUpdated: bigint;
 }

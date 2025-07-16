@@ -1,158 +1,327 @@
+// frontend/src/services/wallet.service.ts
 import { Injectable } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
+import { connect, disconnect } from '@starknet-io/get-starknet';
+import { WalletAccount, RpcProvider } from 'starknet';
+import { WalletInfo } from '../client/Interfaces/users';
 
 @Injectable({
   providedIn: 'root'
 })
 export class WalletConnectionService {
-  isWalletConnected: boolean = false;
-  walletAddress: string = '';
-  checked: boolean = false;
-  private walletEventHandlers: WalletEventHandlers | null = null;
+  private walletAccount: WalletAccount | null = null;
+  private selectedWallet: any = null; // StarknetWindowObject
+  private provider: RpcProvider;
+  
+  private walletSubject = new BehaviorSubject<WalletInfo | null>(null);
+  public wallet$ = this.walletSubject.asObservable();
 
-  constructor() { }
+  private connectionSubject = new BehaviorSubject<boolean>(false);
+  public isConnected$ = this.connectionSubject.asObservable();
 
-  // Handle wallet events
-  private setupWalletEvents(): void {
-    if (!window.starknet) return;
+  constructor() {
+    this.provider = new RpcProvider({ 
+      nodeUrl: process.env['STARKNET_RPC_URL'] || 'https://starknet-sepolia.public.blastapi.io/rpc/v0_7'
+    });
     
-    // Handle account changes
-    const handleAccountsChanged = (accounts: string[]) => {
-      if (accounts.length === 0) {
-        // User disconnected wallet
-        this.disconnectWallet();
-      } else if (accounts[0] !== this.walletAddress) {
-        // User switched accounts
-        this.walletAddress = accounts[0];
-        localStorage.setItem('walletAddress', this.walletAddress);
-        // You might want to handle account change here (e.g., refresh data)
-      }
-    };
-    
-    // Handle network changes
-    const handleNetworkChanged = (network: any) => {
-      console.log('Network changed:', network);
-      // Handle network change if needed
-    };
-    
-    // Add event listeners
-    window.starknet.on('accountsChanged', handleAccountsChanged);
-    window.starknet.on('networkChanged', handleNetworkChanged);
-    
-    // Store references to remove listeners later
-    this.walletEventHandlers = {
-      accountsChanged: handleAccountsChanged,
-      networkChanged: handleNetworkChanged
-    };
+    // Check for existing connection on service initialization
+    this.checkExistingConnection();
   }
 
-  checkWalletConnection(): void {
-    // Here you would check local storage or your preferred state management solution
-    // to see if the user has a wallet connected from a previous session
-    const savedWalletAddress = localStorage.getItem('walletAddress');
-    if (savedWalletAddress) {
-      this.isWalletConnected = true;
-      this.walletAddress = savedWalletAddress;
-    }
-  }
+  // ============================================================================
+  // WALLET CONNECTION
+  // ============================================================================
 
-  private isReconnecting: boolean = false;
-
-  async connectWallet(forceNewConnection: boolean = false): Promise<void> {
+  async connectWallet(): Promise<WalletInfo> {
     try {
-      // Clear previous connection data if forcing a new connection
-      if (forceNewConnection) {
-        this.disconnectWallet(true);
-        this.isReconnecting = true;
+      // Connect to wallet using get-starknet v4
+      this.selectedWallet = await connect({
+        modalMode: 'alwaysAsk',
+        modalTheme: 'dark'
+      });
+
+      if (!this.selectedWallet) {
+        throw new Error('Failed to connect wallet');
       }
 
-      // Check if StarkNet provider exists
-      if (!window.starknet) {
-        alert('Please install a StarkNet wallet like Braavos or Argent!');
-        return;
-      }
+      // Create WalletAccount instance
+      this.walletAccount = await WalletAccount.connect(
+        this.provider,
+        this.selectedWallet
+      );
 
-      // If we already have a stored wallet address and are not forcing a new connection,
-      // try to reconnect to that wallet
-      const storedAddress = localStorage.getItem('walletAddress');
-      const storedType = localStorage.getItem('walletType');
-      
-      if (storedAddress && !forceNewConnection && !this.isReconnecting) {
-        // Check if the stored wallet type matches the available provider
-        if ((storedType === 'braavos' && window.starknet.isBraavos) ||
-            (storedType === 'argent' && window.starknet.isArgent) ||
-            (storedType === 'starknet')) {
-          
-          // Try to silently reconnect
-          try {
-            const accounts = await window.starknet.enable();
-            
-            // Verify the account matches the stored one
-            const currentAddress = window.starknet.account?.address || 
-                                  window.starknet.selectedAddress || 
-                                  accounts[0];
-            
-            if (currentAddress === storedAddress) {
-              this.walletAddress = storedAddress;
-              this.isWalletConnected = true;
-              this.setupWalletEvents();
-              console.log(`Reconnected to ${storedType} wallet: ${this.walletAddress}`);
-              return;
-            }
-          } catch (e) {
-            console.log('Silent reconnect failed, requesting new connection');
-          }
-        }
-      }
+      const walletInfo: WalletInfo = {
+        address: this.walletAccount.address,
+        name: this.selectedWallet.name || 'Unknown Wallet',
+        icon: this.selectedWallet.icon || '',
+        isConnected: true
+      };
 
-      // Either no stored wallet or reconnect failed - request fresh connection
-      const accounts = await window.starknet.enable();
-      
-      if (accounts && accounts.length > 0) {
-        this.walletAddress = window.starknet.account?.address || 
-                            window.starknet.selectedAddress || 
-                            accounts[0];
-        
-        this.isWalletConnected = true;
-        
-        // Determine wallet type
-        let walletType = 'starknet';
-        if (window.starknet.isBraavos) {
-          walletType = 'braavos';
-        } else if (window.starknet.isArgent) {
-          walletType = 'argent';
-        }
-        
-        localStorage.setItem('walletAddress', this.walletAddress);
-        localStorage.setItem('walletType', walletType);
-        
-        this.setupWalletEvents();
-        this.isReconnecting = false;
-        
-        console.log(`Connected to ${walletType} wallet: ${this.walletAddress}`);
-      }
+      // Update subjects
+      this.walletSubject.next(walletInfo);
+      this.connectionSubject.next(true);
+
+      // Store connection in localStorage
+      localStorage.setItem('starknet-last-wallet', this.selectedWallet.id || '');
+      localStorage.setItem('wallet-connected', 'true');
+
+      // Setup event listeners
+      this.setupEventListeners();
+
+      console.log('Wallet connected:', walletInfo);
+      return walletInfo;
+
     } catch (error) {
-      console.error('Error connecting wallet:', error);
-      alert('Failed to connect to wallet. Please try again.');
-      this.isReconnecting = false;
+      console.error('Wallet connection error:', error);
+      throw error;
     }
   }
 
-  // Updated disconnect wallet function
-  disconnectWallet(skipLocalStorageClear: boolean = false): void {
-    this.walletAddress = '';
-    this.isWalletConnected = false;
-    
-    // Only clear localStorage if not skipping (used during reconnection)
-    if (!skipLocalStorageClear) {
-      localStorage.removeItem('walletAddress');
-      localStorage.removeItem('walletType');
+  async disconnectWallet(): Promise<void> {
+    try {
+      if (this.selectedWallet) {
+        await disconnect();
+        this.selectedWallet = null;
+        this.walletAccount = null;
+      }
+
+      this.walletSubject.next(null);
+      this.connectionSubject.next(false);
+
+      // Clear localStorage
+      localStorage.removeItem('starknet-last-wallet');
+      localStorage.removeItem('wallet-connected');
+
+      console.log('Wallet disconnected');
+    } catch (error) {
+      console.error('Wallet disconnection error:', error);
+      throw error;
     }
-    
-    // Remove event listeners
-    if (window.starknet && this.walletEventHandlers) {
-      window.starknet.off('accountsChanged', this.walletEventHandlers.accountsChanged);
-      window.starknet.off('networkChanged', this.walletEventHandlers.networkChanged);
-      this.walletEventHandlers = null;
+  }
+
+  async switchAccount(): Promise<WalletInfo | null> {
+    if (!this.selectedWallet || !this.walletAccount) {
+      throw new Error('No wallet connected');
     }
+
+    try {
+      // The WalletAccount automatically updates when account changes
+      // We just need to get the new address
+      const newAddress = this.walletAccount.address;
+
+      const walletInfo: WalletInfo = {
+        address: newAddress,
+        name: this.selectedWallet.name || 'Unknown Wallet',
+        icon: this.selectedWallet.icon || '',
+        isConnected: true
+      };
+
+      this.walletSubject.next(walletInfo);
+      return walletInfo;
+
+    } catch (error) {
+      console.error('Account switch error:', error);
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // WALLET STATE
+  // ============================================================================
+
+  isConnected(): boolean {
+    return this.walletAccount !== null && this.selectedWallet !== null;
+  }
+
+  getConnectedAddress(): string | null {
+    return this.walletAccount?.address || null;
+  }
+
+  async getAccount(): Promise<WalletAccount | null> {
+    if (!this.walletAccount) {
+      await this.checkExistingConnection();
+    }
+    return this.walletAccount;
+  }
+
+  getWalletInfo(): WalletInfo | null {
+    return this.walletSubject.value;
+  }
+
+  // ============================================================================
+  // BALANCE AND TRANSACTION UTILITIES
+  // ============================================================================
+
+  async getBalance(tokenAddress: string): Promise<string> {
+    if (!this.walletAccount) {
+      throw new Error('No account connected');
+    }
+
+    try {
+      // Get ERC20 token balance
+      const { Contract } = await import('starknet');
+      const erc20Contract = new Contract(
+        [], // ERC20 ABI would go here
+        tokenAddress,
+        this.provider
+      );
+      
+      const balance = await erc20Contract['balanceOf'](this.walletAccount.address);
+      return balance.toString();
+      
+    } catch (error) {
+      console.error('Balance fetch error:', error);
+      throw error;
+    }
+  }
+
+  async estimateGas(calls: any[]): Promise<string> {
+    if (!this.walletAccount) {
+      throw new Error('No account connected');
+    }
+
+    try {
+      const estimation = await this.walletAccount.estimateFee(calls);
+      return estimation.overall_fee.toString();
+    } catch (error) {
+      console.error('Gas estimation error:', error);
+      throw error;
+    }
+  }
+
+  async executeTransaction(calls: any[]): Promise<string> {
+    if (!this.walletAccount) {
+      throw new Error('No account connected');
+    }
+
+    try {
+      const result = await this.walletAccount.execute(calls);
+      return result.transaction_hash;
+    } catch (error) {
+      console.error('Transaction execution error:', error);
+      throw error;
+    }
+  }
+
+  async waitForTransaction(txHash: string): Promise<any> {
+    try {
+      return await this.provider.waitForTransaction(txHash);
+    } catch (error) {
+      console.error('Transaction wait error:', error);
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // EVENT HANDLERS
+  // ============================================================================
+
+  setupEventListeners(): void {
+    if (!this.selectedWallet) return;
+
+    // Listen for account changes
+    this.selectedWallet.on('accountsChanged', (accounts: string[]) => {
+      console.log('Accounts changed:', accounts);
+      if (accounts.length === 0) {
+        this.disconnectWallet();
+      } else {
+        this.handleAccountChange(accounts[0]);
+      }
+    });
+
+    // Listen for network changes
+    this.selectedWallet.on('networkChanged', (chainId?: string, accounts?: string[]) => {
+      console.log('Network changed:', chainId);
+      // Handle network change if needed
+      if (chainId) {
+        this.handleNetworkChange(chainId);
+      }
+    });
+  }
+
+  private async handleAccountChange(newAddress: string): Promise<void> {
+    if (!this.selectedWallet || !this.walletAccount) return;
+
+    try {
+      // WalletAccount automatically updates its address when account changes
+      // We just need to update our state
+      const walletInfo: WalletInfo = {
+        address: this.walletAccount.address,
+        name: this.selectedWallet.name || 'Unknown Wallet',
+        icon: this.selectedWallet.icon || '',
+        isConnected: true
+      };
+
+      this.walletSubject.next(walletInfo);
+    } catch (error) {
+      console.error('Account change handling error:', error);
+    }
+  }
+
+  private async handleNetworkChange(chainId: string): Promise<void> {
+    console.log('Network changed to:', chainId);
+    // You might want to recreate the WalletAccount instance here
+    // if your app needs to handle network changes specifically
+  }
+
+  // ============================================================================
+  // PRIVATE METHODS
+  // ============================================================================
+
+  private async checkExistingConnection(): Promise<void> {
+    const wasConnected = localStorage.getItem('wallet-connected') === 'true';
+    const lastWallet = localStorage.getItem('starknet-last-wallet');
+
+    if (wasConnected && lastWallet) {
+      try {
+        // Try to reconnect to the last used wallet
+        this.selectedWallet = await connect({ 
+          modalMode: 'neverAsk'
+        });
+
+        if (this.selectedWallet && this.selectedWallet.isConnected) {
+          this.walletAccount = await WalletAccount.connect(
+            this.provider,
+            this.selectedWallet
+          );
+
+          const walletInfo: WalletInfo = {
+            address: this.walletAccount.address,
+            name: this.selectedWallet.name || 'Unknown Wallet',
+            icon: this.selectedWallet.icon || '',
+            isConnected: true
+          };
+
+          this.walletSubject.next(walletInfo);
+          this.connectionSubject.next(true);
+          this.setupEventListeners();
+
+          console.log('Existing wallet connection restored:', walletInfo);
+        }
+      } catch (error) {
+        console.log('Could not restore wallet connection:', error);
+        // Clear localStorage if connection fails
+        localStorage.removeItem('wallet-connected');
+        localStorage.removeItem('starknet-last-wallet');
+      }
+    }
+  }
+
+  // ============================================================================
+  // UTILITY METHODS
+  // ============================================================================
+
+  formatAddress(address: string): string {
+    if (!address) return '';
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }
+
+  isValidStarknetAddress(address: string): boolean {
+    return /^0x[0-9a-fA-F]{63,64}$/.test(address);
+  }
+
+  formatBalance(balance: string, decimals: number = 18): string {
+    const value = parseFloat(balance) / Math.pow(10, decimals);
+    return value.toFixed(4);
   }
 }
