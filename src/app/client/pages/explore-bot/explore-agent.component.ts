@@ -8,9 +8,9 @@ import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { DropdownModule } from 'primeng/dropdown';
-import { MetricData } from '../../Interfaces/bot';
-import { TradingAgent } from '../../Interfaces/bot';
-import { ApiService } from '../../../Services/db_api.service';
+import { MetricData } from '../../interfaces/graph';
+import { TradingAgent } from '../../interfaces/graph';
+import { ApiService } from '../../../services/db_api.service';
 
 
 

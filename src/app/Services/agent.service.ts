@@ -3,9 +3,10 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, from, throwError } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
-import { WalletConnectionService } from './wallet-connection.service';
-import { UserConfig, PrepData, MetricData } from '../client/Interfaces/users';
-import { AgentConfig } from '../client/Interfaces/agents';
+import { WalletService } from './wallet.service';
+import { PrepData } from '../client/interfaces/responses';
+import { AgentConfig } from '../client/interfaces/agent';
+import { UserConfig } from '../client/interfaces/user';
 
 @Injectable({
   providedIn: 'root'
@@ -15,7 +16,7 @@ export class AgentService {
 
   constructor(
     private http: HttpClient,
-    private walletService: WalletConnectionService
+    private walletService: WalletService
   ) {}
 
   // ============================================================================
@@ -293,11 +294,5 @@ export class AgentService {
     }
     console.error(errorMessage);
     return throwError(() => new Error(errorMessage));
-  }
-
-
-  getGraphData(id: number): Observable<MetricData[]> {
-    return this.http.get<MetricData[]>(`${this.apiUrl}/graphdata/${id}`)
-      .pipe(catchError(this.handleError));
   }
 }

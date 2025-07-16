@@ -5,9 +5,9 @@ import { FluidModule } from 'primeng/fluid';
 import { ButtonModule } from 'primeng/button';
 import { ChartModule } from 'primeng/chart';
 import { TableModule } from 'primeng/table';
-import { AssetAllocationData, TransactionData, TradingAgent } from '../../Interfaces/bot';
-import { WalletConnectionService } from '../../../Services/wallet-connection.service';
-import { ApiService } from '../../../Services/db_api.service';
+import { AssetAllocationData, TransactionData, TradingAgent } from '../../interfaces/graph';
+import { WalletConnectionService } from '../../../services/wallet.service';
+import { ApiService } from '../../../services/db_api.service';
 import { forkJoin } from 'rxjs';
 
 

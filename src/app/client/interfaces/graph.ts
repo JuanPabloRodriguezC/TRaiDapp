@@ -1,9 +1,4 @@
-export interface TradingAgent {
-  id: number,
-  name: string,
-  strategy: string,
-  created_at: string
-}
+
 
 export interface Subscription {
   id: number;
@@ -21,6 +16,7 @@ export interface AssetAllocationData {
   amount: number,
 }
 
+
 export interface TransactionData {
   token_id: string,
   amount: number,
@@ -32,3 +28,4 @@ export interface MetricData {
   metric_name: string;
   metric_value: number;
 }
+

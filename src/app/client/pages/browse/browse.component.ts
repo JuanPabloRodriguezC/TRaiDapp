@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TradingAgent, Subscription } from '../../Interfaces/bot';
-import { ApiService } from '../../../Services/db_api.service';
+import { TradingAgent, Subscription } from '../../interfaces/graph';
+import { ApiService } from '../../../services/db_api.service';
 import { forkJoin, Observable } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import { Router } from '@angular/router';

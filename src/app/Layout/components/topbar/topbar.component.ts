@@ -10,8 +10,8 @@ import { MenuModule } from 'primeng/menu';
 import { TagModule } from 'primeng/tag';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
-import { LayoutService } from '../../Service/layout.service';
-import { WalletConnectionService, WalletInfo } from '../../../Services/wallet-connection.service';
+import { LayoutService } from '../../service/layout.service';
+import { WalletConnectionService, WalletInfo } from '../../../services/wallet.service';
 @Component({
   selector: 'app-topbar',
   imports: [RouterModule,

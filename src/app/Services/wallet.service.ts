@@ -3,12 +3,12 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { connect, disconnect } from '@starknet-io/get-starknet';
 import { WalletAccount, RpcProvider } from 'starknet';
-import { WalletInfo } from '../client/Interfaces/users';
+import { WalletInfo } from '../client/interfaces/user';
 
 @Injectable({
   providedIn: 'root'
 })
-export class WalletConnectionService {
+export class WalletService {
   private walletAccount: WalletAccount | null = null;
   private selectedWallet: any = null; // StarknetWindowObject
   private provider: RpcProvider;
