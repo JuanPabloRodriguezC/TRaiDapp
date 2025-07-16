@@ -6,14 +6,14 @@ const router = Router();
 router.post('/create', async (req: any, res) => {
   try {
     const agentService = req.services.get('agentService');
-    const { creatorId, agentConfig } = req.body;
+    const { name, description, agentConfig } = req.body;
     
-    if (!creatorId || !agentConfig) {
+    if (!name || !description || !agentConfig) {
       res.status(400).json({ error: 'Missing required fields: creatorId, agentConfig' });
       return;
     }
     
-    const result = await agentService.createAgent(creatorId, agentConfig);
+    const result = await agentService.createAgent(name, description, agentConfig);
     res.json(result);
   } catch (error: any) {
     console.error('Agent creation error:', error);
@@ -64,19 +64,58 @@ router.get('/:agentId', async (req: any, res) => {
 // SUBSCRIPTION MANAGEMENT
 // ============================================================================
 
+// Deposit tokens to contract for trading
+router.post('/deposit', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { token, amount } = req.body;
+    
+    if (!token || !amount) {
+      res.status(400).json({ error: 'Missing required fields: token, amount' });
+      return;
+    }
+    
+    const prepData = await agentService.depositForTrading(token, amount);
+    res.json(prepData);
+  } catch (error: any) {
+    console.error('Error ocurred while making the deposit:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Withdraw from contract
+router.post('/withdraw', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { token, amount } = req.body;
+    
+    if (!token || !amount) {
+      res.status(400).json({ error: 'Missing required fields: token, amount' });
+      return;
+    }
+    
+    const prepData = await agentService.withdrawFromTrading(token, amount);
+    res.json(prepData);
+  } catch (error: any) {
+    console.error('Error ocurred while withdrawing from contract:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 // Prepare subscription transaction (returns data for frontend wallet)
 router.post('/:agentId/prepare-subscription', async (req: any, res) => {
   try {
     const agentService = req.services.get('agentService');
     const { agentId } = req.params;
-    const { userId, userConfig } = req.body;
+    const { userConfig } = req.body;
     
-    if (!userId || !userConfig) {
+    if (!userConfig) {
       res.status(400).json({ error: 'Missing required fields: userId, userConfig' });
       return;
     }
     
-    const prepData = await agentService.prepareSubscription(userId, agentId, userConfig);
+    const prepData = await agentService.prepareSubscription(agentId, userConfig);
     res.json(prepData);
   } catch (error: any) {
     console.error('Subscription preparation error:', error);

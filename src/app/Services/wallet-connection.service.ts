@@ -3,13 +3,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { connect, disconnect } from '@starknet-io/get-starknet';
 import { WalletAccount, RpcProvider } from 'starknet';
-
-export interface WalletInfo {
-  address: string;
-  name: string;
-  icon: string;
-  isConnected: boolean;
-}
+import { WalletInfo } from '../client/Interfaces/users';
 
 @Injectable({
   providedIn: 'root'

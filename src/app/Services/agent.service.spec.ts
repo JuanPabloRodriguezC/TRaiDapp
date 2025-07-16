@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
-import { BlockchainApiService } from './blockchain-api.service';
+import { AgentService } from './agent.service';
 
-describe('BlockchainApiService', () => {
-  let service: BlockchainApiService;
+describe('AgentService', () => {
+  let service: AgentService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(BlockchainApiService);
+    service = TestBed.inject(AgentService);
   });
 
   it('should be created', () => {

@@ -75,18 +75,12 @@ async function startServer() {
     });
 
     const agentsRouter = await import('./routes/agents');
-    const contractsRouter = await import('./routes/contracts');
-    const subsRouter = await import('./routes/subscription');
-    const graphRouter = await import('./routes/graph');
     const allocRouter = await import('./routes/asset-allocations');
     const transactionsRouter = await import('./routes/transactions');
     
-    app.use('/api/subscriptions', subsRouter.default(pool));
-    app.use('/api/graphdata', graphRouter.default(pool));
     app.use('/api/allocation', allocRouter.default(pool));
     app.use('/api/transactionsdata', transactionsRouter.default(pool));
     app.use('/api/agents', agentsRouter.default);
-    app.use('/api/contracts', contractsRouter.default);
 
     // Error handling middleware
     app.use((err: any, req: any, res: any, next: any) => {

@@ -3,30 +3,9 @@ import { TradingAgent } from './TradingAgent';
 import { ContractService } from './ContractService';
 import { PredictionService } from './PredictionService';
 import { MarketDataService } from './MarketDataService';
-import { AgentConfig, MarketContext, TradingDecision } from '../types/agent';
+import { AgentConfig, MarketContext, TradingDecision, AgentCreationResult, PrepData, UserSubscription } from '../types/agent';
 import { CallData } from 'starknet';
 
-export interface AgentCreationResult {
-  agentId: string;
-  success: boolean;
-}
-
-export interface SubscriptionPrepData {
-  contractAddress: string;
-  entrypoint: string;
-  calldata: string[];
-  agentConfig: AgentConfig;
-}
-
-export interface UserSubscription {
-  agentId: string;
-  userId: string;
-  txHash: string;
-  subscribedAt: Date;
-  isActive: boolean;
-  contractVerified: boolean;
-  agentConfig: AgentConfig;
-}
 
 export class AgentService {
   private agents = new Map<string, TradingAgent>();
@@ -39,37 +18,30 @@ export class AgentService {
   ) {}
 
   async createAgent(
-    creatorId: string, 
+    name: string,
+    description: string,
     agentConfig: AgentConfig
   ): Promise<AgentCreationResult> {
     try {
-      // Generate unique agent ID
-      const agentId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      agentConfig.id = agentId;
+      const agentId = `agent_${Date.now()}_${Math.random().toString(36)}`;
+      this.contractService.createAgent(agentId, name, agentConfig);
 
-      // Store agent in database (available for all users)
       await this.db.query(`
         INSERT INTO agents (
-          id, creator_id, name, strategy, description, config, 
-          is_public, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+          id, name, description, config,
+          created_at, updated_at, is_active
+        ) VALUES ($1, $2, $3, $4, NOW(), NOW(), true)
       `, [
         agentId,
-        creatorId,
-        agentConfig.name,
-        agentConfig.strategy,
-        agentConfig.description || '',
+        name,
+        description,
         JSON.stringify(agentConfig),
-        true // Make public by default
       ]);
 
       return { agentId, success: true };
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to create agent: ${error.message}`);
-      } else {
-        throw new Error('Failed to create agent: Unknown error');
-      }
+      console.error('Agent creation error:', error);
+      return {agentId: '', success: false};
     }
   }
 
@@ -84,6 +56,7 @@ export class AgentService {
     let query = `
       SELECT 
         a.*,
+        a.config->>'strategy' as strategy,
         COUNT(s.user_id) as subscriber_count,
         AVG(ap.total_return) as avg_performance
       FROM agents a
@@ -95,7 +68,7 @@ export class AgentService {
     const params: any[] = [];
     
     if (strategy) {
-      query += ` AND a.strategy = $${params.length + 1}`;
+      query += ` AND a.config->>'strategy' = ${params.length + 1}`;
       params.push(strategy);
     }
     
@@ -113,28 +86,38 @@ export class AgentService {
         query += ` ORDER BY a.created_at DESC`;
     }
     
-    query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    query += ` LIMIT ${params.length + 1} OFFSET ${params.length + 2}`;
     params.push(limit, offset);
 
     const result = await this.db.query(query, params);
     
     // Get total count
-    const countResult = await this.db.query(`
-      SELECT COUNT(*) as total FROM agents WHERE is_public = true
-      ${strategy ? 'AND strategy = $1' : ''}
-    `, strategy ? [strategy] : []);
+    const countQuery = `
+      SELECT COUNT(*) as total FROM agents 
+      WHERE is_public = true
+      ${strategy ? `AND config->>'strategy' = $1` : ''}
+    `;
+    const countResult = await this.db.query(countQuery, strategy ? [strategy] : []);
 
-    const agents = result.rows.map(row => ({
-      ...JSON.parse(row.config),
-      subscriberCount: parseInt(row.subscriber_count),
-      avgPerformance: parseFloat(row.avg_performance) || 0
-    }));
+    const agents = result.rows.map(row => {
+      const config = JSON.parse(row.config);
+      return {
+        ...config,
+        // Override with table values to ensure consistency
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        subscriberCount: parseInt(row.subscriber_count),
+        avgPerformance: parseFloat(row.avg_performance) || 0
+      };
+    });
 
     return { 
       agents, 
       total: parseInt(countResult.rows[0].total) 
     };
   }
+
 
   async getAgentDetails(agentId: string): Promise<AgentConfig & {performance: any}> {
     const result = await this.db.query(`
@@ -173,21 +156,53 @@ export class AgentService {
     };
   }
 
+  // ============================================================================
+  // SUBSCRIPTION MANAGEMENT
+  // ============================================================================
+  async depositForTrading(
+    token: string,
+    amount: number
+  ): Promise<PrepData>{
+    const callData = CallData.compile([
+      token,
+      amount
+    ])
+    return {
+      contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
+      entrypoint: 'deposit_for_trading',
+      calldata: callData,
+    };
+  }
+
+  async withdrawFromTrading(
+    token: string,
+    amount: number
+  ): Promise<PrepData>{
+    const callData = CallData.compile([
+      token,
+      amount
+    ])
+    return {
+      contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
+      entrypoint: 'withdraw_from_trading',
+      calldata: callData,
+    };
+  }
+
   async prepareSubscription(
-    userId: string, 
     agentId: string,
     userConfig: {
-      automationLevel: 'manual' | 'alert_only' | 'semi_auto' | 'full_auto';
+      automationLevel: 'manual' | 'alert_only' | 'semi_auto' |'full_auto';
       maxTradesPerDay: number;
       maxApiCostPerDay: string; // Wei amount as string
       riskTolerance: number; // 0-1
       maxPositionSize: string; // Wei amount as string
       stopLossThreshold: number; // 0-1
     }
-  ): Promise<SubscriptionPrepData> {
+  ): Promise<PrepData> {
     // Get agent configuration
     const agentResult = await this.db.query(
-      'SELECT config FROM agents WHERE id = $1 AND is_public = true',
+      'SELECT config FROM agents WHERE id = $1 AND is_active = true',
       [agentId]
     );
 
@@ -195,21 +210,16 @@ export class AgentService {
       throw new Error(`Agent ${agentId} not found`);
     }
 
-    const agentConfig: AgentConfig = JSON.parse(agentResult.rows[0].config);
-
     // Prepare contract call data
     const callData = CallData.compile([
       agentId,
       {
-        name: agentConfig.name,
-        strategy: this.encodeStrategy(agentConfig.strategy),
         automation_level: this.encodeAutomationLevel(userConfig.automationLevel),
         max_trades_per_day: userConfig.maxTradesPerDay,
         max_api_cost_per_day: userConfig.maxApiCostPerDay,
         risk_tolerance: Math.floor(userConfig.riskTolerance * 100),
         max_position_size: userConfig.maxPositionSize,
         stop_loss_threshold: Math.floor(userConfig.stopLossThreshold * 10000),
-        is_active: true
       }
     ]);
 
@@ -217,7 +227,6 @@ export class AgentService {
       contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
       entrypoint: 'subscribe_to_agent',
       calldata: callData,
-      agentConfig
     };
   }
 
@@ -243,11 +252,7 @@ export class AgentService {
       this.verifySubscriptionAsync(userId, agentId, txHash);
       
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to create agent: ${error.message}`);
-      } else {
-        throw new Error('Failed to create agent: Unknown error');
-      }
+      console.error('Subscription confirmation error:', error);
     }
   }
 
@@ -293,25 +298,27 @@ export class AgentService {
     }
   }
 
-  async unsubscribeFromAgent(userId: string, agentId: string): Promise<SubscriptionPrepData> {
-    // Prepare unsubscription transaction
+  async unsubscribeFromAgent(agentId: string): Promise<PrepData> {
     const callData = CallData.compile([agentId]);
 
     return {
       contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
       entrypoint: 'unsubscribe_from_agent',
-      calldata: callData,
-      agentConfig: null as any // Not needed for unsubscription
+      calldata: callData
     };
   }
 
   async confirmUnsubscription(userId: string, agentId: string, txHash: string): Promise<void> {
     await this.db.query(`
       UPDATE user_subscriptions 
-      SET is_active = false, unsubscribed_at = NOW(), unsubscribe_tx_hash = $3
+      SET is_active = false, unsubscribed_at = NOW(), unsubscribe_tx_hash = $3, user_config = NULL
       WHERE user_id = $1 AND agent_id = $2
     `, [userId, agentId, txHash]);
   }
+
+  // ============================================================================
+  // AGENT EXECUTION (Existing functionality)
+  // ============================================================================
 
   async runAgent(userId: string, agentId: string, marketContext: MarketContext): Promise<TradingDecision> {
     // Verify user is subscribed

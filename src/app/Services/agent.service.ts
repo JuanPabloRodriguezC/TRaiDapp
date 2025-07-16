@@ -1,38 +1,11 @@
 // frontend/src/services/agent.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, from, throwError } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
 import { WalletConnectionService } from './wallet-connection.service';
-
-export interface AgentConfig {
-  id: string;
-  name: string;
-  strategy: 'conservative' | 'aggressive' | 'swing' | 'scalping';
-  description: string;
-  riskTolerance: number;
-  maxPositionSize: number;
-  stopLossThreshold: number;
-  automationLevel: 'manual' | 'alert_only' | 'semi_auto' | 'full_auto';
-  subscriberCount?: number;
-  avgPerformance?: number;
-}
-
-export interface UserConfig {
-  automationLevel: 'manual' | 'alert_only' | 'semi_auto' | 'full_auto';
-  maxTradesPerDay: number;
-  maxApiCostPerDay: string; // Wei amount as string
-  riskTolerance: number; // 0-1
-  maxPositionSize: string; // Wei amount as string
-  stopLossThreshold: number; // 0-1
-}
-
-export interface SubscriptionPrepData {
-  contractAddress: string;
-  entrypoint: string;
-  calldata: string[];
-  agentConfig: AgentConfig;
-}
+import { UserConfig, PrepData, MetricData } from '../client/Interfaces/users';
+import { AgentConfig } from '../client/Interfaces/agents';
 
 @Injectable({
   providedIn: 'root'
@@ -72,6 +45,26 @@ export class AgentService {
     });
   }
 
+  depositForTrading(token_address: string, amount: number): Observable<string> {
+    return this.http.post<PrepData>(`${this.apiUrl}/agents/deposit`, { token_address, amount }).pipe(
+      switchMap(res => from(this.executeWalletTransaction(res))),
+      catchError(err => {
+        console.error(err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  withdrawFromTrading(token_address: string, amount: number): Observable<string>{
+    return this.http.post<PrepData>(`${this.apiUrl}/agents/withdraw`, {token_address, amount}).pipe(
+      switchMap(res => from(this.executeWalletTransaction(res))),
+      catchError(err => {
+        console.error(err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   // ============================================================================
   // SUBSCRIPTION MANAGEMENT
   // ============================================================================
@@ -84,8 +77,7 @@ export class AgentService {
     }
 
     // Step 1: Prepare subscription transaction
-    return this.http.post<SubscriptionPrepData>(`${this.apiUrl}/agents/${agentId}/prepare-subscription`, {
-      userId,
+    return this.http.post<PrepData>(`${this.apiUrl}/agents/${agentId}/prepare-subscription`, {
       userConfig
     }).pipe(
       // Step 2: Execute transaction with user's wallet
@@ -123,7 +115,7 @@ export class AgentService {
     }
 
     // Step 1: Prepare unsubscription transaction
-    return this.http.post<SubscriptionPrepData>(`${this.apiUrl}/agents/${agentId}/prepare-unsubscription`, {
+    return this.http.post<PrepData>(`${this.apiUrl}/agents/${agentId}/prepare-unsubscription`, {
       userId
     }).pipe(
       // Step 2: Execute transaction with user's wallet
@@ -235,7 +227,7 @@ export class AgentService {
   // WALLET INTEGRATION HELPERS
   // ============================================================================
 
-  private async executeWalletTransaction(prepData: SubscriptionPrepData): Promise<string> {
+  private async executeWalletTransaction(prepData: PrepData): Promise<string> {
     try {
       const account = await this.walletService.getAccount();
       
@@ -290,5 +282,22 @@ export class AgentService {
       full_auto: 'Fully Automatic'
     };
     return levels[level as keyof typeof levels] || level;
+  }
+
+  private handleError(error: HttpErrorResponse) {
+    let errorMessage = 'An error occurred';
+    if (error.error instanceof ErrorEvent) {
+      errorMessage = `Error: ${error.error.message}`;
+    } else {
+      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+    }
+    console.error(errorMessage);
+    return throwError(() => new Error(errorMessage));
+  }
+
+
+  getGraphData(id: number): Observable<MetricData[]> {
+    return this.http.get<MetricData[]>(`${this.apiUrl}/graphdata/${id}`)
+      .pipe(catchError(this.handleError));
   }
 }
