@@ -8,6 +8,12 @@ pub struct AgentSubscribed {
 }
 
 #[derive(Drop, starknet::Event)]
+pub struct AgentUnsubscribed {
+    pub user: ContractAddress,
+    pub agent_id: felt252
+}
+
+#[derive(Drop, starknet::Event)]
 pub struct AgentDecision {
     pub decision_id: u32,
     pub agent_id: felt252,

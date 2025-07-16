@@ -8,7 +8,7 @@ pub mod TraidingAgents {
         UserBalance
     };
     use crate::utils::events::{
-        AgentSubscribed, AgentDecision, TradeExecuted, BalanceUpdated, AuthorizationChanged,
+        AgentSubscribed, AgentUnsubscribed,AgentDecision, TradeExecuted, BalanceUpdated, AuthorizationChanged,
         ReservationMade, ReservationReleased, TradeSettled, FeesAllocated, PlatformFeesWithdrawn
     };
     use starknet::storage::{ StoragePointerReadAccess, StoragePointerWriteAccess, Map, StoragePathEntry };
@@ -46,12 +46,14 @@ pub mod TraidingAgents {
         TradeSettled: TradeSettled,
         FeesAllocated: FeesAllocated,
         PlatformFeesWithdrawn: PlatformFeesWithdrawn,
+        AgentUnsubscribed: AgentUnsubscribed,
     }
 
     #[constructor]
     fn constructor(ref self: ContractState, admin: ContractAddress) {
         self.admin.write(admin);
     }
+    
 
     #[abi(embed_v0)]
     impl AgentManagerImpl of IAgentManager<ContractState> {
@@ -126,6 +128,27 @@ pub mod TraidingAgents {
                 automation_level: automation_level,
             });
         }
+
+        fn unsubscribe_from_agent(
+            ref self: ContractState,
+            agent_id: felt252
+        ) {
+            let user = get_caller_address();
+            let mut subscription = self.user_subscriptions.entry((user, agent_id)).read();
+            
+            assert(subscription.is_authorized, 'User not subscribed to agent');
+            
+            subscription.is_authorized = false;
+            subscription.user_config.max_trades_per_day = 0;
+            subscription.user_config.max_position_size = 0;
+            self.user_subscriptions.entry((user, agent_id)).write(subscription);
+            
+            self.emit(AgentUnsubscribed {
+                user,
+                agent_id,
+            });
+        }
+        
 
         fn authorize_agent_trading(
             ref self: ContractState,

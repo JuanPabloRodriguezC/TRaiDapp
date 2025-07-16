@@ -22,6 +22,11 @@ pub trait IAgentManager<TContractState> {
         agent_id: felt252,
         user_config: UserConfig
     );
+
+    fn unsubscribe_from_agent(
+        ref self: TContractState,
+        agent_id: felt252
+    );
     
     fn update_subscription(
         ref self: TContractState,
