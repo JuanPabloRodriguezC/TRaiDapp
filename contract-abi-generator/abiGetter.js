@@ -1,8 +1,6 @@
-import { Account, Contract, json, RpcProvider} from 'starknet';
-import dotenv from 'dotenv';
+import { Account, RpcProvider} from 'starknet';
 import fs from 'fs';
 
-dotenv.config();
 //https://starknet-sepolia.infura.io/v3/
 let provider = new RpcProvider({nodeUrl: 'http://127.0.0.1:5050/rpc'});
 
