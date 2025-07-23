@@ -24,18 +24,23 @@
                     class="layout-topbar-action flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                     *ngIf="isWalletConnected"
                     (click)="walletMenu.toggle($event)">
-                    <i class="pi pi-wallet"></i>
-                    <span>{{ formatWalletAddress(walletAddress) }}</span>
+                    <img [src]="walletInfo?.icon" alt="wallet" class="w-4 h-4" *ngIf="walletInfo?.icon">
+                    <i class="pi pi-wallet" *ngIf="!walletInfo?.icon"></i>
+                    <div class="flex flex-col items-start">
+                        <span class="text-xs text-gray-500">{{ walletName }}</span>
+                        <span class="text-sm font-medium">{{ formatWalletAddress(walletAddress) }}</span>
+                    </div>
                 </button>
 
                 <!-- Connect Wallet Button -->
-                <button 
+                 <button 
                     type="button" 
                     class="layout-topbar-action flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                     *ngIf="!isWalletConnected"
-                    (click)="connectWallet()">
+                    (click)="connectWallet()"
+                    [disabled]="connecting">
                     <i class="pi pi-wallet"></i>
-                    <span>Connect Wallet</span>
+                    <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
                 </button>
 
                 <!-- Dropdown Menu for Disconnect -->
