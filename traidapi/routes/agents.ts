@@ -60,6 +60,19 @@ router.get('/:agentId', async (req: any, res) => {
   }
 });
 
+router.get('/:agentId/graph-data', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    
+    const graphData = await agentService.getAgentGraphData(agentId);
+    res.json(graphData);
+  } catch (error: any) {
+    console.error('Graph data fetch error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============================================================================
 // SUBSCRIPTION MANAGEMENT
 // ============================================================================
@@ -215,6 +228,56 @@ router.post('/:agentId/verify-subscription', async (req: any, res) => {
     console.error('Subscription verification error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+router.get('/user/:userId/performance', async (req: any, res) => {
+  try{
+    const agentService = req.services.get('agentService');
+    const { userId } = req.params;
+
+    if (!userId) {
+      res.status(400).json({ error: 'Missing required field: userId' });
+      return;
+    }
+
+    const performance = await agentService.getUserPerformanceData(userId);
+    res.json(performance);
+  }catch (error: any) {
+    console.error('Subscription verification error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/user/:userId/trades', async (req: any, res) => {
+  try{
+    const agentService = req.services.get('agentService');
+    const { userId } = req.params;
+
+    if (!userId) {
+      res.status(400).json({ error: 'Missing required field: userId' });
+      return;
+    }
+
+    const trades = await agentService.getUserLatestTrades(userId);
+    res.json(trades);
+  }catch (error: any) {
+    console.error('Subscription verification error:', error);
+    res.status(500).json({ error: error.message });
+  }
+  
+});
+
+router.get('/user/:userId/allocations', async (req: any, res) => {
+  const agentService = req.services.get('agentService');
+  const { userId } = req.params;
+
+  if (!userId) {
+    res.status(400).json({ error: 'Missing required field: userId' });
+    return;
+  }
+
+  const allocations = await agentService.getUserAssetAllocation(userId);
+  res.json(allocations);
 });
 
 // Get agent analysis/decision

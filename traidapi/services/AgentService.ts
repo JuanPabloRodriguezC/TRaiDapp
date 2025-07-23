@@ -3,7 +3,7 @@ import { TradingAgent } from './TradingAgent';
 import { ContractService } from './ContractService';
 import { PredictionService } from './PredictionService';
 import { MarketDataService } from './MarketDataService';
-import { AgentConfig, MarketContext, TradingDecision, AgentCreationResult, PrepData, UserSubscription } from '../types/agent';
+import { AgentConfig, MarketContext, TradingDecision, AgentCreationResult, PrepData, UserSubscription, MetricData } from '../types/agent';
 import { CallData } from 'starknet';
 
 
@@ -62,7 +62,7 @@ export class AgentService {
       FROM agents a
       LEFT JOIN user_subscriptions s ON a.id = s.agent_id AND s.is_active = true
       LEFT JOIN agent_performance ap ON a.id = ap.agent_id
-      WHERE a.is_public = true
+      WHERE a.is_active = true
     `;
     
     const params: any[] = [];
@@ -132,7 +132,7 @@ export class AgentService {
       FROM agents a
       LEFT JOIN user_subscriptions s ON a.id = s.agent_id AND s.is_active = true
       LEFT JOIN agent_performance ap ON a.id = ap.agent_id
-      WHERE a.id = $1 AND a.is_public = true
+      WHERE a.id = $1 AND a.is_active = true
       GROUP BY a.id, ap.total_return, ap.total_trades, ap.win_rate, ap.sharpe_ratio, ap.max_drawdown
     `, [agentId]);
 
@@ -144,6 +144,12 @@ export class AgentService {
     const agentConfig = JSON.parse(row.config);
 
     return {
+      name: row.name,
+      description: row.description,
+      id: row.id,
+      strategy: row.strategy,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
       ...agentConfig,
       subscriberCount: parseInt(row.subscriber_count),
       performance: {
@@ -154,6 +160,58 @@ export class AgentService {
         maxDrawdown: parseFloat(row.max_drawdown) || 0
       }
     };
+  }
+
+  async getAgentGraphData(agentId: string): Promise<MetricData[]> {
+    const result = await this.db.query(`
+      SELECT 
+        'total_return_pct' as metric_name,
+        ap.total_return as metric_value,
+        ap.calculated_at as timestamp
+      FROM agent_performance ap
+      WHERE ap.agent_id = $1
+      ORDER BY ap.calculated_at DESC
+      LIMIT 30
+      
+      UNION ALL
+      
+      SELECT 
+        'win_rate_pct' as metric_name,
+        ap.win_rate * 100 as metric_value,
+        ap.calculated_at as timestamp
+      FROM agent_performance ap
+      WHERE ap.agent_id = $1
+      ORDER BY ap.calculated_at DESC
+      LIMIT 30
+      
+      UNION ALL
+      
+      SELECT 
+        'sharpe_ratio' as metric_name,
+        ap.sharpe_ratio as metric_value,
+        ap.calculated_at as timestamp
+      FROM agent_performance ap
+      WHERE ap.agent_id = $1
+      ORDER BY ap.calculated_at DESC
+      LIMIT 30
+      
+      UNION ALL
+      
+      SELECT 
+        'max_drawdown_pct' as metric_name,
+        ap.max_drawdown * 100 as metric_value,
+        ap.calculated_at as timestamp
+      FROM agent_performance ap
+      WHERE ap.agent_id = $1
+      ORDER BY ap.calculated_at DESC
+      LIMIT 30
+    `, [agentId]);
+
+    return result.rows.map(row => ({
+      metric_name: row.metric_name,
+      metric_value: parseFloat(row.metric_value) || 0,
+      timestamp: row.timestamp
+    }));
   }
 
   // ============================================================================
@@ -314,6 +372,40 @@ export class AgentService {
       SET is_active = false, unsubscribed_at = NOW(), unsubscribe_tx_hash = $3, user_config = NULL
       WHERE user_id = $1 AND agent_id = $2
     `, [userId, agentId, txHash]);
+  }
+
+  async getUserPerformanceData(userId: string): Promise<MetricData[]> {
+    const result = await this.db.query(`
+      SELECT 
+        'portfolio_value' as metric_name,
+        SUM(ap.total_return) as metric_value,
+        ap.calculated_at as timestamp
+      FROM agent_performance ap
+      JOIN user_subscriptions us ON ap.agent_id = us.agent_id
+      WHERE us.user_id = $1 AND us.is_active = true
+      GROUP BY ap.calculated_at
+      ORDER BY ap.calculated_at ASC
+    `, [userId]);
+
+    return result.rows;
+  }
+
+  async getUserLatestTrades(userId: string, limit: number = 10): Promise<any[]> {
+    const result = await this.db.query(`
+      SELECT 
+        ad.token_symbol,
+        ad.action,
+        ad.amount,
+        ad.created_at as timestamp,
+        a.name as agent_name
+      FROM agent_decisions ad
+      JOIN agents a ON ad.agent_id = a.id
+      WHERE ad.user_id = $1 AND ad.executed = true
+      ORDER BY ad.created_at DESC
+      LIMIT $2
+    `, [userId, limit]);
+
+    return result.rows;
   }
 
   // ============================================================================

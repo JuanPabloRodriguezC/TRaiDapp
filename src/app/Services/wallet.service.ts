@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { connect, disconnect } from '@starknet-io/get-starknet';
 import { WalletAccount, RpcProvider } from 'starknet';
-import { WalletInfo } from '../client/interfaces/user';
+import { WalletInfo } from '../interfaces/user';
 
 @Injectable({
   providedIn: 'root'
@@ -21,7 +21,7 @@ export class WalletService {
 
   constructor() {
     this.provider = new RpcProvider({ 
-      nodeUrl: process.env['STARKNET_RPC_URL'] || 'https://starknet-sepolia.public.blastapi.io/rpc/v0_7'
+      nodeUrl: 'https://starknet-sepolia.public.blastapi.io/rpc/v0_7'
     });
     
     // Check for existing connection on service initialization

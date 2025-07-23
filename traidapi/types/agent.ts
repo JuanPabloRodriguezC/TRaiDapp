@@ -104,3 +104,9 @@ export interface ContractBalance {
   reservedForTrading: bigint;
   lastUpdated: bigint;
 }
+
+export interface MetricData {
+  metric_name: string;
+  metric_value: number;
+  timestamp: string;
+}

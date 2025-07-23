@@ -4,9 +4,11 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, from, throwError } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
 import { WalletService } from './wallet.service';
-import { PrepData } from '../client/interfaces/responses';
-import { AgentConfig } from '../client/interfaces/agent';
-import { UserConfig } from '../client/interfaces/user';
+import { PrepData } from '../interfaces/responses';
+import { AgentResponse } from '../interfaces/responses';
+import { UserConfig } from '../interfaces/user';
+import { Agent } from '../interfaces/agent';
+import { MetricData } from '../interfaces/graph';
 
 @Injectable({
   providedIn: 'root'
@@ -28,18 +30,23 @@ export class AgentService {
     limit: number = 20,
     strategy?: string,
     sortBy: 'performance' | 'created_at' | 'subscribers' = 'created_at'
-  ): Observable<{agents: AgentConfig[], total: number}> {
+  ): Observable<{agents: AgentResponse[], total: number}> {
     const params: any = { page, limit, sortBy };
     if (strategy) params.strategy = strategy;
 
-    return this.http.get<{agents: AgentConfig[], total: number}>(`${this.apiUrl}/agents`, { params });
+    return this.http.get<{agents: AgentResponse[], total: number}>(`${this.apiUrl}/agents`, { params });
   }
 
-  getAgentDetails(agentId: string): Observable<AgentConfig & {performance: any}> {
-    return this.http.get<AgentConfig & {performance: any}>(`${this.apiUrl}/agents/${agentId}`);
+  getAgentDetails(agentId: string): Observable<Agent  & {performance: any}> {
+    return this.http.get<Agent & {performance: any}>(`${this.apiUrl}/agents/${agentId}`);
   }
 
-  createAgent(creatorId: string, agentConfig: Partial<AgentConfig>): Observable<{agentId: string, success: boolean}> {
+  getGraphData(agentId: string): Observable<MetricData[]> {
+    return this.http.get<MetricData[]>(`${this.apiUrl}/agents/${agentId}/graph-data`)
+      .pipe(catchError(this.handleError));
+  }
+
+  createAgent(creatorId: string, agentConfig: Partial<AgentResponse>): Observable<{agentId: string, success: boolean}> {
     return this.http.post<{agentId: string, success: boolean}>(`${this.apiUrl}/agents/create`, {
       creatorId,
       agentConfig
@@ -165,6 +172,41 @@ export class AgentService {
     return this.http.post<{verified: boolean}>(`${this.apiUrl}/agents/${agentId}/verify-subscription`, {
       userId
     });
+  }
+
+  // Add to agent.service.ts
+
+  getUserPerformanceData(): Observable<MetricData[]> {
+    const userId = this.walletService.getConnectedAddress();
+    
+    if (!userId) {
+      return throwError(() => new Error('Wallet not connected'));
+    }
+
+    return this.http.get<MetricData[]>(`${this.apiUrl}/agents/user/${userId}/performance`)
+      .pipe(catchError(this.handleError));
+  }
+
+  getUserLatestTrades(): Observable<any[]> {
+    const userId = this.walletService.getConnectedAddress();
+    
+    if (!userId) {
+      return throwError(() => new Error('Wallet not connected'));
+    }
+
+    return this.http.get<any[]>(`${this.apiUrl}/agents/user/${userId}/trades`)
+      .pipe(catchError(this.handleError));
+  }
+
+  getUserSubscriptionsDetailed(): Observable<any[]> {
+    const userId = this.walletService.getConnectedAddress();
+    
+    if (!userId) {
+      return throwError(() => new Error('Wallet not connected'));
+    }
+
+    return this.http.get<any[]>(`${this.apiUrl}/agents/user/${userId}/subscriptions-detailed`)
+      .pipe(catchError(this.handleError));
   }
 
   // ============================================================================
