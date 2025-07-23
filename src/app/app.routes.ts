@@ -1,9 +1,9 @@
 import { Routes } from '@angular/router';
-import { BrowseComponent } from './client/pages/browse/browse.component';
-import { MainpageComponent } from './client/pages/mainpage/mainpage.component';
-import { DashboardComponent } from './client/pages/dashboard/dashboard.component';
-import { AppLayoutComponent } from './Layout/Componentes/layout/layout.component';
-import { ExploreAgentComponent } from './client/pages/explore-bot/explore-agent.component';
+import { BrowseComponent } from './pages/browse/browse.component';
+import { MainpageComponent } from './pages/mainpage/mainpage.component';
+import { DashboardComponent } from './pages/dashboard/dashboard.component';
+import { AppLayoutComponent } from './layout/components/layout/layout.component';
+import { ExploreAgentComponent } from './pages/explore-agent/explore-agent.component';
 
 export const routes: Routes = [
     { path: '', redirectTo: 'landing-page', pathMatch: 'full' },

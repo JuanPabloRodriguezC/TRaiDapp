@@ -1,11 +1,10 @@
-export interface TradingAgent {
-  id: number,
-  name: string,
-  strategy: string,
-  created_at: string
+export interface PrepData {
+  contractAddress: string;
+  entrypoint: string;
+  calldata: string[];
 }
 
-export interface AgentConfig {
+export interface AgentResponse {
   id: string;
   name: string;
   strategy: 'conservative' | 'aggressive' | 'swing' | 'scalping';

@@ -10,8 +10,9 @@ import { MenuModule } from 'primeng/menu';
 import { TagModule } from 'primeng/tag';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
+import { WalletInfo } from '../../../client/interfaces/user';
 import { LayoutService } from '../../service/layout.service';
-import { WalletConnectionService, WalletInfo } from '../../../services/wallet.service';
+import { WalletService } from '../../../services/wallet.service';
 @Component({
   selector: 'app-topbar',
   imports: [RouterModule,
@@ -57,7 +58,7 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
 
   constructor(
     public layoutService: LayoutService,
-    private walletService: WalletConnectionService // Updated service
+    private walletService: WalletService // Updated service
   ) {}
 
   ngOnInit(): void {
