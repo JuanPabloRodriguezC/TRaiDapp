@@ -3,7 +3,7 @@ import { TradingAgent } from './TradingAgent';
 import { ContractService } from './ContractService';
 import { PredictionService } from './PredictionService';
 import { MarketDataService } from './MarketDataService';
-import { AgentConfig, MarketContext, TradingDecision, AgentCreationResult, PrepData, UserSubscription, MetricData } from '../types/agent';
+import { Agent, AgentConfig, MarketContext, TradingDecision, AgentCreationResult, PrepData, UserSubscription, MetricData } from '../types/agent';
 import { CallData } from 'starknet';
 
 
@@ -68,7 +68,7 @@ export class AgentService {
     const params: any[] = [];
     
     if (strategy) {
-      query += ` AND a.config->>'strategy' = ${params.length + 1}`;
+      query += ` AND a.config->>'strategy' = $${params.length + 1}`;
       params.push(strategy);
     }
     
@@ -86,7 +86,7 @@ export class AgentService {
         query += ` ORDER BY a.created_at DESC`;
     }
     
-    query += ` LIMIT ${params.length + 1} OFFSET ${params.length + 2}`;
+    query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
 
     const result = await this.db.query(query, params);
@@ -94,13 +94,13 @@ export class AgentService {
     // Get total count
     const countQuery = `
       SELECT COUNT(*) as total FROM agents 
-      WHERE is_public = true
+      WHERE is_active = true
       ${strategy ? `AND config->>'strategy' = $1` : ''}
     `;
     const countResult = await this.db.query(countQuery, strategy ? [strategy] : []);
 
     const agents = result.rows.map(row => {
-      const config = JSON.parse(row.config);
+      const config = row.config;
       return {
         ...config,
         // Override with table values to ensure consistency
@@ -119,7 +119,7 @@ export class AgentService {
   }
 
 
-  async getAgentDetails(agentId: string): Promise<AgentConfig & {performance: any}> {
+  async getAgentDetails(agentId: string): Promise<Agent & {performance: any} & {subscriberCount: number}> {
     const result = await this.db.query(`
       SELECT 
         a.*,
@@ -141,16 +141,16 @@ export class AgentService {
     }
 
     const row = result.rows[0];
-    const agentConfig = JSON.parse(row.config);
+    const agentConfig = row.config;
 
     return {
       name: row.name,
       description: row.description,
       id: row.id,
-      strategy: row.strategy,
       created_at: row.created_at,
       updated_at: row.updated_at,
-      ...agentConfig,
+      is_active: row.is_active,
+      config: agentConfig,
       subscriberCount: parseInt(row.subscriber_count),
       performance: {
         totalReturn: parseFloat(row.total_return) || 0,
@@ -165,53 +165,28 @@ export class AgentService {
   async getAgentGraphData(agentId: string): Promise<MetricData[]> {
     const result = await this.db.query(`
       SELECT 
-        'total_return_pct' as metric_name,
-        ap.total_return as metric_value,
-        ap.calculated_at as timestamp
-      FROM agent_performance ap
-      WHERE ap.agent_id = $1
-      ORDER BY ap.calculated_at DESC
-      LIMIT 30
-      
-      UNION ALL
-      
-      SELECT 
-        'win_rate_pct' as metric_name,
-        ap.win_rate * 100 as metric_value,
-        ap.calculated_at as timestamp
-      FROM agent_performance ap
-      WHERE ap.agent_id = $1
-      ORDER BY ap.calculated_at DESC
-      LIMIT 30
-      
-      UNION ALL
-      
-      SELECT 
-        'sharpe_ratio' as metric_name,
-        ap.sharpe_ratio as metric_value,
-        ap.calculated_at as timestamp
-      FROM agent_performance ap
-      WHERE ap.agent_id = $1
-      ORDER BY ap.calculated_at DESC
-      LIMIT 30
-      
-      UNION ALL
-      
-      SELECT 
-        'max_drawdown_pct' as metric_name,
-        ap.max_drawdown * 100 as metric_value,
-        ap.calculated_at as timestamp
-      FROM agent_performance ap
-      WHERE ap.agent_id = $1
-      ORDER BY ap.calculated_at DESC
-      LIMIT 30
-    `, [agentId]);
+      ap.total_return,
+      ap.win_rate * 100 as win_rate_pct,
+      ap.sharpe_ratio,
+      ap.max_drawdown * 100 as max_drawdown_pct,
+      ap.calculated_at as timestamp
+    FROM agent_performance ap
+    WHERE ap.agent_id = $1
+    ORDER BY ap.calculated_at DESC
+    LIMIT 30
+  `, [agentId]);
 
-    return result.rows.map(row => ({
-      metric_name: row.metric_name,
-      metric_value: parseFloat(row.metric_value) || 0,
-      timestamp: row.timestamp
-    }));
+    const metrics: MetricData[] = [];
+    result.rows.forEach(row => {
+      metrics.push(
+        { metric_name: 'total_return_pct', metric_value: parseFloat(row.total_return) || 0, timestamp: row.timestamp },
+        { metric_name: 'win_rate_pct', metric_value: parseFloat(row.win_rate_pct) || 0, timestamp: row.timestamp },
+        { metric_name: 'sharpe_ratio', metric_value: parseFloat(row.sharpe_ratio) || 0, timestamp: row.timestamp },
+        { metric_name: 'max_drawdown_pct', metric_value: parseFloat(row.max_drawdown_pct) || 0, timestamp: row.timestamp }
+      );
+    });
+
+    return metrics;
   }
 
   // ============================================================================
