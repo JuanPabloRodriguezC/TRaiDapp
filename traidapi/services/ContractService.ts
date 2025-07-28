@@ -1,21 +1,21 @@
-import { Contract, RpcProvider, Account, CallData, num, json } from 'starknet';
+import { Contract, RpcProvider, Account, CallData, num, json, SuccessfulTransactionReceiptResponse, RevertedTransactionReceiptResponse } from 'starknet';
 import { AgentConfig, ContractSubscription, ContractBalance } from '../types/agent';
 import fs from 'fs';
 
 export interface ContractConfig {
   contractAddress: string;
   rpcUrl: string;
-  account?: Account;
+  account?: [string, string];
 }
 
 export class ContractService {
   private contract: Contract;
-  private account?: Account;
+  private account: Account;
   private provider: RpcProvider;
 
   constructor(config: ContractConfig) {
     this.provider = new RpcProvider({ 
-      nodeUrl: config.rpcUrl
+      nodeUrl: config.rpcUrl,
     });
     
     const compiledContract = json.parse(fs.readFileSync('./services/abi.json').toString('ascii'));
@@ -25,7 +25,10 @@ export class ContractService {
       this.provider
     );
     
-    this.account = config.account;
+    if (!config.account) {
+      throw new Error('Account information is required in config');
+    }
+    this.account = new Account(this.provider, config.account[0], config.account[1], undefined, "0x3");
   }
 
   async createAgent(agentId: string, name:string, agentConfig: AgentConfig): Promise<string>{
@@ -44,7 +47,7 @@ export class ContractService {
         min_stop_loss_threshold: Math.floor(agentConfig.stopLossThreshold * 10000),
       }
     ]);
-
+    
     const txHash = await this.account.execute({
       contractAddress: this.contract.address,
       entrypoint: 'create_agent_config',

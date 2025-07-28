@@ -7,7 +7,7 @@ import { WalletService } from './wallet.service';
 import { PrepData } from '../interfaces/responses';
 import { AgentResponse } from '../interfaces/responses';
 import { UserConfig } from '../interfaces/user';
-import { Agent } from '../interfaces/agent';
+import { Agent, AgentConfig } from '../interfaces/agent';
 import { MetricData } from '../interfaces/graph';
 
 @Injectable({
@@ -24,6 +24,13 @@ export class AgentService {
   // ============================================================================
   // AGENT MARKETPLACE
   // ============================================================================
+  createAgent(name: string, description: string, agentConfig: AgentConfig): Observable<{agentId: string, success: boolean}> {
+    return this.http.post<{agentId: string, success: boolean}>(`${this.apiUrl}/agents/create`, {
+      name,
+      description,
+      agentConfig
+    });
+  }
 
   getAvailableAgents(
     page: number = 1,
@@ -37,20 +44,13 @@ export class AgentService {
     return this.http.get<{agents: AgentResponse[], total: number}>(`${this.apiUrl}/agents`, { params });
   }
 
-  getAgentDetails(agentId: string): Observable<Agent  & {performance: any}> {
-    return this.http.get<Agent & {performance: any}>(`${this.apiUrl}/agents/${agentId}`);
+  getAgentDetails(agentId: string): Observable<Agent  & {performance: any} & {subscriberCount: number}> {
+    return this.http.get<Agent & {performance: any} & {subscriberCount: number}>(`${this.apiUrl}/agents/${agentId}`);
   }
 
   getGraphData(agentId: string): Observable<MetricData[]> {
     return this.http.get<MetricData[]>(`${this.apiUrl}/agents/${agentId}/graph-data`)
       .pipe(catchError(this.handleError));
-  }
-
-  createAgent(creatorId: string, agentConfig: Partial<AgentResponse>): Observable<{agentId: string, success: boolean}> {
-    return this.http.post<{agentId: string, success: boolean}>(`${this.apiUrl}/agents/create`, {
-      creatorId,
-      agentConfig
-    });
   }
 
   depositForTrading(token_address: string, amount: number): Observable<string> {

@@ -34,6 +34,7 @@ async function initializeServices(): Promise<ServiceContainer> {
   
   const contractService = new ContractService({
     contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
+    account: [process.env['ADMIN_ACCOUNT'], process.env['ADMIN_PRIVATE_KEY']] as [string, string],
     rpcUrl: process.env['STARKNET_DEVNET']!
   });
   

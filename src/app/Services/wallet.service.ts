@@ -21,7 +21,7 @@ export class WalletService {
 
   constructor() {
     this.provider = new RpcProvider({ 
-      nodeUrl: 'https://starknet-sepolia.public.blastapi.io/rpc/v0_7'
+      nodeUrl: 'http://127.0.0.1:5050/rpc'
     });
     
     // Check for existing connection on service initialization
