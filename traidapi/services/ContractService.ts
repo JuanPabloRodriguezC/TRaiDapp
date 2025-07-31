@@ -1,4 +1,4 @@
-import { Contract, RpcProvider, Account, CallData, num, json, SuccessfulTransactionReceiptResponse, RevertedTransactionReceiptResponse } from 'starknet';
+import { Contract, RpcProvider, Account, CallData, num, json } from 'starknet';
 import { AgentConfig, ContractSubscription, ContractBalance } from '../types/agent';
 import fs from 'fs';
 
@@ -16,6 +16,7 @@ export class ContractService {
   constructor(config: ContractConfig) {
     this.provider = new RpcProvider({ 
       nodeUrl: config.rpcUrl,
+      specVersion: "0.8.1"
     });
     
     const compiledContract = json.parse(fs.readFileSync('./services/abi.json').toString('ascii'));
@@ -36,7 +37,7 @@ export class ContractService {
     
     const callData = CallData.compile([
       {
-        agentId,
+        agent_id: agentId,
         name,
         strategy: agentConfig.strategy,
         max_automation_level: this.encodeAutomationLevel(agentConfig.automationLevel),
@@ -51,9 +52,15 @@ export class ContractService {
     const txHash = await this.account.execute({
       contractAddress: this.contract.address,
       entrypoint: 'create_agent_config',
-      calldata: callData
+      calldata: callData,
+    },{
+      resourceBounds: {
+        l2_gas: { max_amount: '0x3beb240', max_price_per_unit: '0x22ecb25c00' },
+        l1_gas: { max_amount: '0x0', max_price_per_unit: '0x22ecb25c00' },
+        l1_data_gas: { max_amount: '0x120', max_price_per_unit: '0x22ecb25c00' }
+      }
     });
-
+    await this.provider.waitForTransaction(txHash.transaction_hash)
     return txHash.transaction_hash;
   }
 

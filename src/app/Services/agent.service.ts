@@ -24,14 +24,6 @@ export class AgentService {
   // ============================================================================
   // AGENT MARKETPLACE
   // ============================================================================
-  createAgent(name: string, description: string, agentConfig: AgentConfig): Observable<{agentId: string, success: boolean}> {
-    return this.http.post<{agentId: string, success: boolean}>(`${this.apiUrl}/agents/create`, {
-      name,
-      description,
-      agentConfig
-    });
-  }
-
   getAvailableAgents(
     page: number = 1,
     limit: number = 20,

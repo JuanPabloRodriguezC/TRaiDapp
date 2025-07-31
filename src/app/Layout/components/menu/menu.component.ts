@@ -18,7 +18,6 @@ export class AppMenuComponent {
     {
       items: [
         { label: 'Home', icon: 'pi pi-fw pi-home', routerLink: ['/main/landing-page'] },
-        { label: 'Create Agent', icon: 'pi pi-fw pi-plus', class: 'rotated-icon', routerLink: ['/main/create-agent'] },
         { label: 'Browse', icon: 'pi pi-fw pi-sliders-v', routerLink: ['/main/browse'] },
         { label: 'Dashboard', icon: 'pi pi-fw pi-mobile', class: 'rotated-icon', routerLink: ['/main/dashboard'] },
         
