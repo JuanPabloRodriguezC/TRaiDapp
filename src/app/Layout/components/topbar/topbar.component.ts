@@ -7,12 +7,16 @@ import { StyleClassModule } from 'primeng/styleclass';
 import { DropdownModule } from 'primeng/dropdown';
 import { DrawerModule } from 'primeng/drawer';
 import { MenuModule } from 'primeng/menu';
+import { DialogModule } from 'primeng/dialog';
+import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { TagModule } from 'primeng/tag';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { WalletInfo } from '../../../interfaces/user';
 import { LayoutService } from '../../service/layout.service';
 import { WalletService } from '../../../services/wallet.service';
+import { AgentService } from '../../../services/agent.service';
 
 @Component({
   selector: 'app-topbar',
@@ -24,6 +28,9 @@ import { WalletService } from '../../../services/wallet.service';
             DrawerModule,
             TagModule,
             MenuModule,
+            DialogModule,
+            ButtonModule,
+            InputNumberModule
           ],
   templateUrl: './topbar.component.html',
   styleUrl: './topbar.component.css'
@@ -35,7 +42,12 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
   walletInfo: WalletInfo | null = null;
   isConnected = false;
   connecting = false;
-
+  displayDepositDialog = false;
+  depositAmount: number = 0;
+  withdrawAmount: number = 0;
+  activeTab: 'deposit' | 'withdraw' = 'deposit';
+  userBalance: number = 100; // Get from wallet service
+  processingTransaction = false;
   walletMenuItems = [
     {
       label: 'Copy Address',
@@ -59,7 +71,8 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
 
   constructor(
     public layoutService: LayoutService,
-    private walletService: WalletService // Updated service
+    private walletService: WalletService,
+    private agentService: AgentService
   ) {}
 
   ngOnInit(): void {
@@ -90,9 +103,40 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  async toggleDepositDialog(): Promise<void> {
+    this.displayDepositDialog = !this.displayDepositDialog;
+    const balanceStr = await this.walletService.getBalance('STRK');
+    this.userBalance = Number(balanceStr);
+  }
+
   toggleDarkMode() {
     this.layoutService.layoutConfig.update((state) => ({ ...state, darkTheme: !state.darkTheme }));
   }
+
+  setActiveTab(tab: 'deposit' | 'withdraw'): void {
+    this.activeTab = tab;
+    // Reset amounts when switching tabs
+    this.depositAmount = 0;
+    this.withdrawAmount = 0;
+  }
+
+  get canExecuteTransaction(): boolean {
+    const amount = this.activeTab === 'deposit' ? this.depositAmount : this.withdrawAmount;
+    return amount > 0 && !this.processingTransaction && 
+          (this.activeTab === 'deposit' || amount <= this.userBalance);
+  }
+
+  onDialogHide(): void {
+    // Reset form when dialog is closed
+    this.depositAmount = 0;
+    this.withdrawAmount = 0;
+    this.activeTab = 'deposit';
+  }
+
+  async executeTransaction(): Promise<void> {
+  }
+
+
 
   async connectWallet(): Promise<void> {
     if (this.connecting) return;
@@ -139,7 +183,8 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
   }
 
   formatWalletAddress(address: string): string {
-    if (!address) return '';
+    if (!address) return 'No Address';
+    if (address.length < 10) return address;
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   }
 
