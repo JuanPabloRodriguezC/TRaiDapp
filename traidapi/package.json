@@ -23,5 +23,8 @@
     "pg": "^8.14.0",
     "starknet": "^7.6.4",
     "yargs": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5"
   }
 }

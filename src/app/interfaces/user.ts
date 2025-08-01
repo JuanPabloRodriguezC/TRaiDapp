@@ -5,12 +5,12 @@ export interface WalletInfo {
   isConnected: boolean;
 }
 
-export interface UserConfig {
+export interface ContractUserConfig {
   automationLevel: 'manual' | 'alert_only' | 'semi_auto' | 'full_auto';
   maxTradesPerDay: number;
   maxApiCostPerDay: string; // Wei amount as string
-  riskTolerance: number; // 0-1
-  maxPositionSize: string; // Wei amount as string
-  stopLossThreshold: number; // 0-1
+  riskTolerance: number; // 0-100 (will be converted to 0-10000 for contract)
+  maxPositionSize: string; // Wei amount as string  
+  stopLossThreshold: number; // 0-100 (will be converted to 0-10000 for contract)
 }
 

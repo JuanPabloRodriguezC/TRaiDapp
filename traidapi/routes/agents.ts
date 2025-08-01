@@ -81,17 +81,35 @@ router.get('/:agentId/graph-data', async (req: any, res) => {
 router.post('/deposit', async (req: any, res) => {
   try {
     const agentService = req.services.get('agentService');
-    const { token, amount } = req.body;
+    const { token_address, amount } = req.body;
     
-    if (!token || !amount) {
-      res.status(400).json({ error: 'Missing required fields: token, amount' });
+    if (!token_address || !amount) {
+      res.status(400).json({ error: 'Missing required fields: token_address, amount' });
+      return;
+    }
+
+    // Validate token address format (basic check)
+    if (!token_address.startsWith('0x') || token_address.length !== 66) {
+      res.status(400).json({ error: 'Invalid token address format' });
+      return;
+    }
+
+    // Validate amount
+    try {
+      const amountBigInt = BigInt(amount);
+      if (amountBigInt <= 0) {
+        res.status(400).json({ error: 'Amount must be greater than 0' });
+        return;
+      }
+    } catch (e) {
+      res.status(400).json({ error: 'Invalid amount format' });
       return;
     }
     
-    const prepData = await agentService.depositForTrading(token, amount);
+    const prepData = await agentService.depositForTrading(token_address, amount);
     res.json(prepData);
   } catch (error: any) {
-    console.error('Error ocurred while making the deposit:', error);
+    console.error('Error occurred while making the deposit:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -100,17 +118,35 @@ router.post('/deposit', async (req: any, res) => {
 router.post('/withdraw', async (req: any, res) => {
   try {
     const agentService = req.services.get('agentService');
-    const { token, amount } = req.body;
+    const { token_address, amount } = req.body;
     
-    if (!token || !amount) {
-      res.status(400).json({ error: 'Missing required fields: token, amount' });
+    if (!token_address || !amount) {
+      res.status(400).json({ error: 'Missing required fields: token_address, amount' });
+      return;
+    }
+
+    // Validate token address format
+    if (!token_address.startsWith('0x') || token_address.length !== 66) {
+      res.status(400).json({ error: 'Invalid token address format' });
+      return;
+    }
+
+    // Validate amount
+    try {
+      const amountBigInt = BigInt(amount);
+      if (amountBigInt <= 0) {
+        res.status(400).json({ error: 'Amount must be greater than 0' });
+        return;
+      }
+    } catch (e) {
+      res.status(400).json({ error: 'Invalid amount format' });
       return;
     }
     
-    const prepData = await agentService.withdrawFromTrading(token, amount);
+    const prepData = await agentService.withdrawFromTrading(token_address, amount);
     res.json(prepData);
   } catch (error: any) {
-    console.error('Error ocurred while withdrawing from contract:', error);
+    console.error('Error occurred while withdrawing from contract:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -124,7 +160,48 @@ router.post('/:agentId/prepare-subscription', async (req: any, res) => {
     const { userConfig } = req.body;
     
     if (!userConfig) {
-      res.status(400).json({ error: 'Missing required fields: userId, userConfig' });
+      res.status(400).json({ error: 'Missing required field: userConfig' });
+      return;
+    }
+
+    // Validate userConfig structure
+    const requiredFields = ['automationLevel', 'maxTradesPerDay', 'maxApiCostPerDay', 'riskTolerance', 'maxPositionSize', 'stopLossThreshold'];
+    const missingFields = requiredFields.filter(field => !(field in userConfig));
+    
+    if (missingFields.length > 0) {
+      res.status(400).json({ error: `Missing required userConfig fields: ${missingFields.join(', ')}` });
+      return;
+    }
+
+    // Validate automation level
+    const validAutomationLevels = ['manual', 'alert_only', 'auto'];
+    if (!validAutomationLevels.includes(userConfig.automationLevel)) {
+      res.status(400).json({ error: 'Invalid automation level' });
+      return;
+    }
+
+    // Validate numeric ranges
+    if (userConfig.riskTolerance < 0 || userConfig.riskTolerance > 1) {
+      res.status(400).json({ error: 'Risk tolerance must be between 0 and 100' });
+      return;
+    }
+
+    if (userConfig.stopLossThreshold < 0 || userConfig.stopLossThreshold > 1) {
+      res.status(400).json({ error: 'Stop loss threshold must be between 0 and 100' });
+      return;
+    }
+
+    if (userConfig.maxTradesPerDay < 1 || userConfig.maxTradesPerDay > 1000) {
+      res.status(400).json({ error: 'Max trades per day must be between 1 and 1000' });
+      return;
+    }
+
+    // Validate wei amounts
+    try {
+      BigInt(userConfig.maxApiCostPerDay);
+      BigInt(userConfig.maxPositionSize);
+    } catch (e) {
+      res.status(400).json({ error: 'Invalid wei amount format' });
       return;
     }
     
@@ -132,7 +209,15 @@ router.post('/:agentId/prepare-subscription', async (req: any, res) => {
     res.json(prepData);
   } catch (error: any) {
     console.error('Subscription preparation error:', error);
-    res.status(500).json({ error: error.message });
+    
+    // Handle specific error types
+    if (error.message.includes('not found')) {
+      res.status(404).json({ error: error.message });
+    } else if (error.message.includes('Validation failed')) {
+      res.status(422).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 
@@ -161,6 +246,9 @@ router.post('/:agentId/prepare-unsubscription', async (req: any, res) => {
   try {
     const agentService = req.services.get('agentService');
     const { agentId } = req.params;
+    
+    // Note: userId should come from authentication middleware in production
+    // For now, we'll use it from request body but this should be from JWT token
     const { userId } = req.body;
     
     if (!userId) {
@@ -168,7 +256,7 @@ router.post('/:agentId/prepare-unsubscription', async (req: any, res) => {
       return;
     }
     
-    const prepData = await agentService.unsubscribeFromAgent(userId, agentId);
+    const prepData = await agentService.unsubscribeFromAgent(agentId);
     res.json(prepData);
   } catch (error: any) {
     console.error('Unsubscription preparation error:', error);

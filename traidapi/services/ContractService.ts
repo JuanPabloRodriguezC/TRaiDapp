@@ -40,12 +40,12 @@ export class ContractService {
         agent_id: agentId,
         name,
         strategy: agentConfig.strategy,
-        max_automation_level: this.encodeAutomationLevel(agentConfig.automationLevel),
+        max_automation_level: this.encodeAutomationLevel(agentConfig.maxAutomationLevel),
         max_trades_per_day: agentConfig.maxTradesPerDay || 10,
         max_api_cost_per_day: num.toBigInt(agentConfig.maxApiCostPerDay || '1000000000000000000'),
-        max_risk_tolerance: Math.floor(agentConfig.riskTolerance * 100),
+        max_risk_tolerance: Math.floor(agentConfig.maxRiskTolerance * 100),
         max_position_size: num.toBigInt(agentConfig.maxPositionSize.toString()),
-        min_stop_loss_threshold: Math.floor(agentConfig.stopLossThreshold * 10000),
+        min_stop_loss_threshold: Math.floor(agentConfig.minStopLoss * 10000),
       }
     ]);
     

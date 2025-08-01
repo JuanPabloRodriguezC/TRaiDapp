@@ -1,7 +1,7 @@
 export interface PrepData {
   contractAddress: string;
   entrypoint: string;
-  calldata: string[];
+  calldata: any[];
 }
 
 export interface AgentResponse {

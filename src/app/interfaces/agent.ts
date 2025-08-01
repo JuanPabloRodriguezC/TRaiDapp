@@ -11,10 +11,10 @@ export interface Agent{
 export interface AgentConfig {
   strategy: 'conservative' | 'aggressive' | 'swing' | 'scalping';
   predictionSources: string[];
-  riskTolerance: number;
+  maxRiskTolerance: number;
   maxPositionSize: number;
-  stopLossThreshold: number;
-  automationLevel: 'manual' | 'alert_only' | 'semi_auto' | 'full_auto';
+  minStopLoss: number;
+  maxAutomationLevel: 'manual' | 'alert_only' | 'semi_auto' | 'full_auto';
   maxTradesPerDay: number;
   maxApiCostPerDay: number;
 }

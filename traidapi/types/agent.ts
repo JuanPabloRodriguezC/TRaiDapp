@@ -9,14 +9,14 @@ export interface Agent{
 }
 
 export interface AgentConfig {
-  strategy: 'conservative' | 'aggressive' | 'swing' | 'scalping';
+  strategy: 'conservative' | 'aggressive' | 'swing' | 'scalping' | 'momentum' | 'mean_reversion';
   predictionSources: string[];
-  riskTolerance: number;
-  maxPositionSize: number;
-  stopLossThreshold: number;
-  automationLevel: 'manual' | 'alert_only' | 'semi_auto' | 'full_auto';
+  maxAutomationLevel: 'manual' | 'alert_only' | 'auto';
   maxTradesPerDay: number;
   maxApiCostPerDay: number;
+  maxRiskTolerance: number; // 0-100
+  maxPositionSize: number; // Max position size in wei
+  minStopLoss: number; // 0-100 (minimum stop loss the agent requires)
 }
 
 export interface UserSubscription {
@@ -38,6 +38,16 @@ export interface UserConfig {
   stopLossThreshold: number;
 }
 
+export interface ContractUserConfig {
+  automation_level: number; // 0=manual, 1=alert_only, 2=semi_auto, 3=full_auto
+  max_trades_per_day: number; // u32
+  max_api_cost_per_day: string; // u256 as string (wei)
+  risk_tolerance: number; // u32 (0-10000, representing 0.00% to 100.00%)
+  max_position_size: string; // u256 as string (wei)
+  stop_loss_threshold: number; // u32 (0-10000, representing 0.00% to 100.00%)
+}
+
+
 export interface AgentCreationResult {
   agentId: string;
   success: boolean;
@@ -46,7 +56,7 @@ export interface AgentCreationResult {
 export interface PrepData {
   contractAddress: string;
   entrypoint: string;
-  calldata: string[];
+  calldata: any[];
 }
 
 export interface MarketContext {
@@ -85,11 +95,10 @@ export interface MarketSentiment {
 }
 
 
-
 export interface ContractSubscription {
   agentId: string;
   user: string;
-  config: AgentConfig;
+  config: ContractUserConfig;
   dailyApiCost: bigint;
   dailyTrades: number;
   lastResetDay: bigint;
