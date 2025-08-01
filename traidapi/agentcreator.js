@@ -172,12 +172,12 @@ function validateAllInputs(params) {
     validateName(params.name);
     validateDescription(params.description);
     validateStrategy(params.strategy);
-    validateAutomationLevel(params.automationLevel);
+    validateAutomationLevel(params.maxAutomationLevel);
     validateMaxTradesPerDay(params.maxTradesPerDay);
     validateMaxApiCostPerDay(params.maxApiCostPerDay);
-    validateRiskTolerance(params.riskTolerance);
+    validateRiskTolerance(params.maxRiskTolerance);
     validateMaxPositionSize(params.maxPositionSize);
-    validateStopLossThreshold(params.stopLossThreshold);
+    validateStopLossThreshold(params.minStopLoss);
     
     console.log('✅ All validations passed');
     return true;
@@ -191,12 +191,12 @@ function validateAllInputs(params) {
 function buildAgentConfig(argv) {
   return {
     strategy: argv.strategy,
-    automationLevel: argv['automation-level'],
+    maxAutomationLevel: argv['automation-level'],
     maxTradesPerDay: argv['max-trades-per-day'],
     maxApiCostPerDay: argv['max-api-cost-per-day'],
-    riskTolerance: argv['risk-tolerance'],
+    maxRiskTolerance: argv['risk-tolerance'],
     maxPositionSize: argv['max-position-size'],
-    stopLossThreshold: argv['stop-loss-threshold']
+    minStopLoss: argv['stop-loss-threshold']
   };
 }
 
@@ -256,12 +256,12 @@ async function main() {
     name: argv.name,
     description: argv.description,
     strategy: argv.strategy,
-    automationLevel: argv['automation-level'],
+    maxAutomationLevel: argv['automation-level'],
     maxTradesPerDay: argv['max-trades-per-day'],
     maxApiCostPerDay: argv['max-api-cost-per-day'],
-    riskTolerance: argv['risk-tolerance'],
+    maxRiskTolerance: argv['risk-tolerance'],
     maxPositionSize: argv['max-position-size'],
-    stopLossThreshold: argv['stop-loss-threshold']
+    minStopLoss: argv['stop-loss-threshold']
   };
   
   // Validate inputs
