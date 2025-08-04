@@ -58,9 +58,9 @@ export class ExploreAgentComponent implements OnInit {
   private walletSubscription?: Subscription;
 
   automationLevels = [
-    { label: 'Manual Only', value: 'manual', description: 'You make all trading decisions' },
-    { label: 'Alert Only', value: 'alert_only', description: 'Agent sends alerts, you decide' },
-    { label: 'Auto', value: 'auto', description: 'Agent trades automatically within limits' }
+    { label: 'Manual Only', value: 0, description: 'You make all trading decisions' },
+    { label: 'Alert Only', value: 1, description: 'Agent sends alerts, you decide' },
+    { label: 'Auto', value: 2, description: 'Agent trades automatically within limits' }
   ];
   
   availableMetrics: Metric[] = [
@@ -134,7 +134,6 @@ export class ExploreAgentComponent implements OnInit {
     this.walletAddress = walletInfo?.address || '';
   });
     this.loadHistoricalData();
-    this.filterDataByMetric('total_return_pct');
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -339,6 +338,7 @@ export class ExploreAgentComponent implements OnInit {
         this.allMetricsData = result;
         this.initCharts();
         this.loading = false;
+        this.filterDataByMetric('total_return_pct');
       },
       error: (err) => {
         this.loading = false;

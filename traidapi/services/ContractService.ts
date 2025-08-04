@@ -12,6 +12,7 @@ export class ContractService {
   private contract: Contract;
   private account: Account;
   private provider: RpcProvider;
+  private callData: CallData;
 
   constructor(config: ContractConfig) {
     this.provider = new RpcProvider({ 
@@ -30,35 +31,31 @@ export class ContractService {
       throw new Error('Account information is required in config');
     }
     this.account = new Account(this.provider, config.account[0], config.account[1], undefined, "0x3");
+
+    this.callData = new CallData(compiledContract);
   }
 
   async createAgent(agentId: string, name:string, agentConfig: AgentConfig): Promise<string>{
     if (!this.account) throw new Error('Account required to create agent');
     
-    const callData = CallData.compile([
+    const callData = this.callData.compile('create_agent_config', 
       {
         agent_id: agentId,
         name,
         strategy: agentConfig.strategy,
         max_automation_level: this.encodeAutomationLevel(agentConfig.maxAutomationLevel),
-        max_trades_per_day: agentConfig.maxTradesPerDay || 10,
-        max_api_cost_per_day: num.toBigInt(agentConfig.maxApiCostPerDay || '1000000000000000000'),
+        max_trades_per_day: agentConfig.maxTradesPerDay,
+        max_api_cost_per_day: agentConfig.maxApiCostPerDay,
         max_risk_tolerance: Math.floor(agentConfig.maxRiskTolerance * 100),
-        max_position_size: num.toBigInt(agentConfig.maxPositionSize.toString()),
+        max_position_size: agentConfig.maxPositionSize.toString(),
         min_stop_loss_threshold: Math.floor(agentConfig.minStopLoss * 10000),
       }
-    ]);
-    
+    );
+    console.log('Call data for create_agent:', callData);
     const txHash = await this.account.execute({
       contractAddress: this.contract.address,
       entrypoint: 'create_agent_config',
       calldata: callData,
-    },{
-      resourceBounds: {
-        l2_gas: { max_amount: '0x3beb240', max_price_per_unit: '0x22ecb25c00' },
-        l1_gas: { max_amount: '0x0', max_price_per_unit: '0x22ecb25c00' },
-        l1_data_gas: { max_amount: '0x120', max_price_per_unit: '0x22ecb25c00' }
-      }
     });
     await this.provider.waitForTransaction(txHash.transaction_hash)
     return txHash.transaction_hash;
@@ -103,7 +100,7 @@ export class ContractService {
 }
 
   async getUserSubscription(user: string, agentId: string): Promise<ContractSubscription> {
-    const callData = CallData.compile([user, agentId]);
+    const callData = this.callData.compile('get_user_subscription', {user: user, agent_id: agentId});
     const result = await this.contract.call('get_user_subscription', callData) as any;
     
     return result

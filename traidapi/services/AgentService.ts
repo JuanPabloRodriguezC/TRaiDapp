@@ -5,18 +5,23 @@ import { PredictionService } from './PredictionService';
 import { MarketDataService } from './MarketDataService';
 import { Agent, AgentConfig, MarketContext, TradingDecision, AgentCreationResult, 
   PrepData, UserSubscription, UserConfig, ContractUserConfig, MetricData } from '../types/agent';
-import { CallData } from 'starknet';
+import { CallData, json } from 'starknet';
+import fs from 'fs';
 
 
 export class AgentService {
   private agents = new Map<string, TradingAgent>();
+  private compiledContract = json.parse(fs.readFileSync('./services/abi.json').toString('ascii'));
+  private contractCallData: CallData = {} as CallData;
 
   constructor(
     private db: Pool,
     private contractService: ContractService,
     private predictionService: PredictionService,
     private marketService: MarketDataService
-  ) {}
+  ) {
+    this.contractCallData = new CallData(this.compiledContract);
+  }
 
   async createAgent(
     name: string,
@@ -24,7 +29,7 @@ export class AgentService {
     agentConfig: AgentConfig
   ): Promise<AgentCreationResult> {
     try {
-      const agentId = `agent_${Date.now()}_${Math.random().toString(36)}`;
+      const agentId: string = `${Date.now()}_${Math.random().toString(36)}`;
       this.contractService.createAgent(agentId, name, agentConfig);
 
       await this.db.query(`
@@ -196,7 +201,7 @@ export class AgentService {
     tokenAddress: string,
     amount: string  // Change to string to handle wei amounts
   ): Promise<PrepData> {
-    const callData = CallData.compile([
+    const callData = this.contractCallData.compile('deposit_for_trading',[
       tokenAddress,
       amount
     ]);
@@ -212,7 +217,7 @@ export class AgentService {
   tokenAddress: string,
   amount: string  // Change to string to handle wei amounts
 ): Promise<PrepData> {
-  const callData = CallData.compile([
+  const callData = this.contractCallData.compile('withdraw_from_trading',[
     tokenAddress,
     amount
   ]);
@@ -247,24 +252,26 @@ export class AgentService {
     const contractConfig = this.convertToContractConfig(userConfig);
 
     // Prepare contract call data
-    const callData = CallData.compile([
-      agentId,
-      {
-        automation_level: contractConfig.automation_level,
+
+    const prepCallData = this.contractCallData.compile('subscribe_to_agent', {
+      agent_id: agentId,
+      user_config: {
+        automation_level: contractConfig.automation_level,    // Don't use toBigInt here
         max_trades_per_day: contractConfig.max_trades_per_day,
         max_api_cost_per_day: contractConfig.max_api_cost_per_day,
         risk_tolerance: contractConfig.risk_tolerance,
         max_position_size: contractConfig.max_position_size,
         stop_loss_threshold: contractConfig.stop_loss_threshold,
       }
-    ]);
+    });
 
     return {
       contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
       entrypoint: 'subscribe_to_agent',
-      calldata: callData,
+      calldata: prepCallData,
     };
   }
+
   async confirmSubscription(
     userId: string,
     agentId: string,
@@ -352,7 +359,7 @@ export class AgentService {
       max_api_cost_per_day: userConfig.maxApiCostPerDay,
       risk_tolerance: Math.floor(userConfig.riskTolerance * 100), // Convert percentage to basis points
       max_position_size: userConfig.maxPositionSize,
-      stop_loss_threshold: Math.floor(userConfig.stopLossThreshold * 100), // Convert percentage to basis points
+      stop_loss_threshold: Math.floor(userConfig.stopLossThreshold * 10000), // Convert percentage to basis points
     };
   }
 
