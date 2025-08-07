@@ -2,8 +2,9 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { connect, disconnect } from '@starknet-io/get-starknet';
-import { WalletAccount, RpcProvider } from 'starknet';
+import { WalletAccount, RpcProvider, Contract } from 'starknet';
 import { WalletInfo } from '../interfaces/user';
+
 
 @Injectable({
   providedIn: 'root'
@@ -152,25 +153,81 @@ export class WalletService {
   // BALANCE AND TRANSACTION UTILITIES
   // ============================================================================
 
-  async getBalance(tokenAddress: string): Promise<string> {
+  async getBalance(tokenAddress: string, userAddress?: string): Promise<string> {
     if (!this.walletAccount) {
       throw new Error('No account connected');
     }
 
     try {
-      // Get ERC20 token balance
-      const { Contract } = await import('starknet');
-      const erc20Contract = new Contract(
-        [], // ERC20 ABI would go here
-        tokenAddress,
-        this.provider
-      );
+      const address = userAddress || this.walletAccount.address;
+      const erc20Contract = new Contract(ERC20_ABI, tokenAddress, this.provider);
       
-      const balance = await erc20Contract['balanceOf'](this.walletAccount.address);
+      const balance = await erc20Contract['balanceOf'](address);
       return balance.toString();
       
     } catch (error) {
       console.error('Balance fetch error:', error);
+      throw error;
+    }
+  }
+
+  async checkAllowance(tokenAddress: string, spenderAddress: string, ownerAddress?: string): Promise<string> {
+    if (!this.walletAccount) {
+      throw new Error('No account connected');
+    }
+
+    try {
+      const owner = ownerAddress || this.walletAccount.address;
+      const erc20Contract = new Contract(ERC20_ABI, tokenAddress, this.provider);
+      
+      const allowance = await erc20Contract['allowance'](owner, spenderAddress);
+      return allowance.toString();
+      
+    } catch (error) {
+      console.error('Allowance check error:', error);
+      throw error;
+    }
+  }
+
+  async approveToken(tokenAddress: string, spenderAddress: string, amount: string): Promise<string> {
+    if (!this.walletAccount) {
+      throw new Error('No account connected');
+    }
+
+    try {
+      const result = await this.walletAccount.execute({
+        contractAddress: tokenAddress,
+        entrypoint: 'approve',
+        calldata: [spenderAddress, amount, '0'] // amount as u256 (low, high)
+      });
+      
+      return result.transaction_hash;
+      
+    } catch (error) {
+      console.error('Token approval error:', error);
+      throw error;
+    }
+  }
+
+  async approveMaxToken(tokenAddress: string, spenderAddress: string): Promise<string> {
+    const MAX_UINT256_LOW = '0xffffffffffffffffffffffffffffffff';
+    const MAX_UINT256_HIGH = '0xffffffffffffffffffffffffffffffff';
+    
+    if (!this.walletAccount) {
+      throw new Error('No account connected');
+    }
+
+    try {
+      const result = await this.walletAccount.execute({
+        contractAddress: tokenAddress,
+        entrypoint: 'approve',
+        calldata: [spenderAddress, MAX_UINT256_LOW, MAX_UINT256_HIGH]
+      });
+      
+      return result.transaction_hash;
+      
+    } catch (error) {
+      console.error('Max token approval error:', error);
       throw error;
     }
   }
@@ -325,3 +382,106 @@ export class WalletService {
     return value.toFixed(4);
   }
 }
+
+const ERC20_ABI = [
+  {
+    "name": "balanceOf",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::integer::u256"
+      }
+    ],
+    "state_mutability": "view"
+  },
+  {
+    "name": "allowance",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "spender",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::integer::u256"
+      }
+    ],
+    "state_mutability": "view"
+  },
+  {
+    "name": "approve",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "spender",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::bool"
+      }
+    ],
+    "state_mutability": "external"
+  },
+  {
+    "name": "transfer",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::bool"
+      }
+    ],
+    "state_mutability": "external"
+  },
+  {
+    "name": "transferFrom",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "recipient",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "core::bool"
+      }
+    ],
+    "state_mutability": "external"
+  }
+];

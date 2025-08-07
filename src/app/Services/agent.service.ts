@@ -1,7 +1,7 @@
 // frontend/src/services/agent.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, from, throwError } from 'rxjs';
+import { Observable, from, of, throwError } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
 import { WalletService } from './wallet.service';
 import { PrepData } from '../interfaces/responses';
@@ -56,13 +56,101 @@ export class AgentService {
       .pipe(catchError(this.handleError));
   }
 
-  depositForTrading(tokenAddress: string, amount: number): Observable<string> {
-    return this.http.post<PrepData>(`${this.apiUrl}/agents/deposit`, { 
-      token_address: tokenAddress, 
-      amount: this.formatEtherToWei(amount.toString())
-    }).pipe(
-      switchMap(res => from(this.executeWalletTransaction(res))),
-      catchError(this.handleError)
+  depositForTrading(tokenAddress: string, amount: string): Observable<string> {
+    const userId = this.walletService.getConnectedAddress();
+    
+    if (!userId) {
+      return throwError(() => new Error('Wallet not connected'));
+    }
+
+    console.log('=== AGENT SERVICE DEPOSIT ===');
+    console.log('Token Address:', tokenAddress);
+    console.log('Amount:', amount);
+    console.log('User ID:', userId);
+
+    // Step 1: Check allowance and handle approval if needed
+    return from(this.walletService.checkAllowance(tokenAddress, '0x00a58481e3cc89a662f3ac8afe713c123e17d3a73650a9f19773ed9dd84bbe6a')).pipe(
+      switchMap(allowance => {
+        const needsApproval = BigInt(allowance) < BigInt(amount);
+
+        if (needsApproval) {
+          // Handle approval first
+          return from(this.walletService.approveToken(
+            tokenAddress,
+            '0x00a58481e3cc89a662f3ac8afe713c123e17d3a73650a9f19773ed9dd84bbe6a',
+            amount
+          )).pipe(
+            switchMap(approveTx => {``
+              console.log('✅ Approval submitted:', approveTx);
+              // Wait for approval confirmation
+              return from(this.walletService.waitForTransaction(approveTx));
+            }),
+            switchMap(() => {
+              console.log('✅ Approval confirmed, proceeding with deposit');
+              // Proceed with deposit after approval
+              return this.executeDepositTransaction(tokenAddress, amount, userId);
+            })
+          );
+        } else {
+          console.log('✅ Sufficient allowance, proceeding with deposit');
+          // Direct deposit
+          return this.executeDepositTransaction(tokenAddress, amount, userId);
+        }
+      }),
+      catchError(error => {
+        console.error('❌ Deposit service error:', error);
+        
+        // Provide more specific error messages
+        let errorMessage = 'Deposit failed. Please try again.';
+        
+        if (error.message && error.message.includes('USER_REFUSED_OP')) {
+          errorMessage = 'Transaction was cancelled by user';
+        } else if (error.status === 400) {
+          console.error('Bad Request Error Details:', error);
+          errorMessage = `Invalid request: ${error.error?.message || 'Please check your inputs'}`;
+        } else if (error.status === 404) {
+          errorMessage = 'Deposit endpoint not found. Please contact support.';
+        } else if (error.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+
+  private executeDepositTransaction(tokenAddress: string, amount: string, userId: string): Observable<string> {
+    console.log('🔄 Executing deposit transaction...');
+    
+    // Prepare the request payload
+    const payload = {
+      tokenAddress,
+      amount
+    };
+
+    return this.http.post<PrepData>(`${this.apiUrl}/agents/deposit`, payload).pipe(
+      switchMap(prepData => {
+        return from(this.executeWalletTransaction(prepData));
+      }),
+      catchError(error => {
+        
+        if (error.status === 400) {
+          console.error('Bad Request Details:', {
+            status: error.status,
+            statusText: error.statusText,
+            error: error.error,
+            url: error.url
+          });
+          
+          // Try to extract more specific error info
+          const errorDetails = error.error?.message || error.error?.detail || 'Invalid request parameters';
+          throw new Error(`Bad Request: ${errorDetails}`);
+        }
+        
+        throw error;
+      })
     );
   }
 
@@ -345,26 +433,29 @@ export class AgentService {
       if (!account) {
         throw new Error('No wallet account available. Please connect your wallet.');
       }
-
+      
+      console.log('Executing wallet transaction with prep data:', prepData);
+      
       const result = await account.execute({
         contractAddress: prepData.contractAddress,
         entrypoint: prepData.entrypoint,
         calldata: prepData.calldata
       });
 
+      console.log('✅ Wallet transaction result:', result);
       return result.transaction_hash;
     } catch (error: any) {
-      console.error('Wallet transaction error:', error);
+      console.error('❌ Wallet transaction error:', error);
       
       // Provide more specific error messages for common wallet errors
-      if (error.message && error.message.includes('User rejected')) {
-        throw new Error('Transaction was rejected by user');
+      if (error.message && error.message.includes('USER_REFUSED_OP')) {
+        throw new Error('USER_REFUSED_OP');
       } else if (error.message && error.message.includes('insufficient')) {
         throw new Error('Insufficient funds for transaction');
       } else if (error.message && error.message.includes('network')) {
         throw new Error('Network error. Please check your connection.');
       } else {
-        throw new Error('Transaction failed. Please try again.');
+        throw new Error(error.message || 'Transaction failed. Please try again.');
       }
     }
   }

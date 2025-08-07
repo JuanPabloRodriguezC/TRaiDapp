@@ -81,15 +81,15 @@ router.get('/:agentId/graph-data', async (req: any, res) => {
 router.post('/deposit', async (req: any, res) => {
   try {
     const agentService = req.services.get('agentService');
-    const { token_address, amount } = req.body;
-    
-    if (!token_address || !amount) {
-      res.status(400).json({ error: 'Missing required fields: token_address, amount' });
+    const { tokenAddress, amount } = req.body;
+
+    if (!tokenAddress || !amount) {
+      res.status(400).json({ error: 'Missing required fields: tokenAddress, amount' });
       return;
     }
 
     // Validate token address format (basic check)
-    if (!token_address.startsWith('0x') || token_address.length !== 66) {
+    if (!tokenAddress.startsWith('0x') || tokenAddress.length > 66) {
       res.status(400).json({ error: 'Invalid token address format' });
       return;
     }
@@ -106,7 +106,7 @@ router.post('/deposit', async (req: any, res) => {
       return;
     }
     
-    const prepData = await agentService.depositForTrading(token_address, amount);
+    const prepData = await agentService.depositForTrading(tokenAddress, amount);
     res.json(prepData);
   } catch (error: any) {
     console.error('Error occurred while making the deposit:', error);
@@ -118,15 +118,15 @@ router.post('/deposit', async (req: any, res) => {
 router.post('/withdraw', async (req: any, res) => {
   try {
     const agentService = req.services.get('agentService');
-    const { token_address, amount } = req.body;
+    const { tokenAddress, amount } = req.body;
     
-    if (!token_address || !amount) {
+    if (!tokenAddress || !amount) {
       res.status(400).json({ error: 'Missing required fields: token_address, amount' });
       return;
     }
 
     // Validate token address format
-    if (!token_address.startsWith('0x') || token_address.length !== 66) {
+    if (!tokenAddress.startsWith('0x') || tokenAddress.length !== 66) {
       res.status(400).json({ error: 'Invalid token address format' });
       return;
     }
@@ -143,7 +143,7 @@ router.post('/withdraw', async (req: any, res) => {
       return;
     }
     
-    const prepData = await agentService.withdrawFromTrading(token_address, amount);
+    const prepData = await agentService.withdrawFromTrading(tokenAddress, amount);
     res.json(prepData);
   } catch (error: any) {
     console.error('Error occurred while withdrawing from contract:', error);

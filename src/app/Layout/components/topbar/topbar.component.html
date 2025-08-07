@@ -1,3 +1,4 @@
+<p-toast></p-toast>
 <div class="layout-topbar">
     <div class="layout-topbar-logo-container">
         <button class="layout-menu-button layout-topbar-action" (click)="layoutService.onMenuToggle()">
@@ -22,7 +23,7 @@
                 type="button" 
                 class="deposit-withdraw-button"
                 *ngIf="isWalletConnected"
-                (click)="displayDepositDialog = true">
+                (click)="toggleDepositDialog()">
                 <span>Deposit / Withdraw</span>
             </button>
 
@@ -70,7 +71,7 @@
     [resizable]="false"
     (onHide)="onDialogHide()"
     styleClass="fund-management-dialog"
-    [style]="{width: '450px', minHeight: '400px'}">
+    [style]="{width: '450px', minHeight: '500px'}">
     
     <div class="fund-dialog-content">
         <!-- Tab Headers -->
@@ -93,11 +94,38 @@
             </button>
         </div>
         
+        <!-- Token Selector -->
+        <div class="token-selector-section">
+            <label class="input-label">Select Token</label>
+            <p-dropdown 
+                [options]="availableTokens" 
+                [(ngModel)]="selectedToken"
+                optionLabel="symbol"
+                placeholder="Select a token"
+                (onChange)="onTokenChange($event.value)"
+                styleClass="token-dropdown">
+                <ng-template pTemplate="selectedItem">
+                    <div class="token-item" *ngIf="selectedToken">
+                        <i [class]="selectedToken.icon" *ngIf="selectedToken.icon"></i>
+                        <span class="token-symbol">{{ selectedToken.symbol }}</span>
+                        <span class="token-name">{{ selectedToken.name }}</span>
+                    </div>
+                </ng-template>
+                <ng-template let-token pTemplate="item">
+                    <div class="token-item">
+                        <i [class]="token.icon" *ngIf="token.icon"></i>
+                        <span class="token-symbol">{{ token.symbol }}</span>
+                        <span class="token-name">{{ token.name }}</span>
+                    </div>
+                </ng-template>
+            </p-dropdown>
+        </div>
+        
         <!-- Balance Display -->
-        <div class="balance-display">
+        <div class="balance-display" *ngIf="selectedToken">
             <div class="balance-item">
-                <span class="balance-label">Available Balance:</span>
-                <span class="balance-value">{{ userBalance | number:'1.0-6' }} ETH</span>
+                <span class="balance-label">Wallet Balance:</span>
+                <span class="balance-value">{{ userBalance | number:'1.0-6' }} {{ selectedToken.symbol }}</span>
             </div>
         </div>
         
@@ -112,12 +140,45 @@
                             [(ngModel)]="depositAmount" 
                             placeholder="0.00"
                             [min]="0"
+                            [max]="userBalance"
                             [maxFractionDigits]="6"
                             [useGrouping]="false"
                             styleClass="amount-input"
                             inputStyleClass="amount-input-field">
                         </p-inputNumber>
-                        <span class="currency-label">ETH</span>
+                        <span class="currency-label">{{ selectedToken?.symbol || 'TOKEN' }}</span>
+                    </div>
+                    
+                    <!-- Quick Amount Buttons for Deposit -->
+                    <div class="quick-amounts">
+                        <button 
+                            type="button" 
+                            class="quick-amount-btn"
+                            (click)="depositAmount = userBalance * 0.25"
+                            [disabled]="userBalance === 0">
+                            25%
+                        </button>
+                        <button 
+                            type="button" 
+                            class="quick-amount-btn"
+                            (click)="depositAmount = userBalance * 0.5"
+                            [disabled]="userBalance === 0">
+                            50%
+                        </button>
+                        <button 
+                            type="button" 
+                            class="quick-amount-btn"
+                            (click)="depositAmount = userBalance * 0.75"
+                            [disabled]="userBalance === 0">
+                            75%
+                        </button>
+                        <button 
+                            type="button" 
+                            class="quick-amount-btn"
+                            (click)="depositAmount = userBalance"
+                            [disabled]="userBalance === 0">
+                            Max
+                        </button>
                     </div>
                 </div>
                 
@@ -125,6 +186,10 @@
                     <div class="info-item">
                         <i class="pi pi-info-circle"></i>
                         <span>Funds will be transferred from your wallet to the trading contract</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="pi pi-exclamation-triangle"></i>
+                        <span>You may need to approve token spending first</span>
                     </div>
                 </div>
             </div>
@@ -144,7 +209,7 @@
                             styleClass="amount-input"
                             inputStyleClass="amount-input-field">
                         </p-inputNumber>
-                        <span class="currency-label">ETH</span>
+                        <span class="currency-label">{{ selectedToken?.symbol || 'TOKEN' }}</span>
                     </div>
                     
                     <!-- Quick Amount Buttons -->
@@ -152,28 +217,28 @@
                         <button 
                             type="button" 
                             class="quick-amount-btn"
-                            (click)="withdrawAmount = userBalance * 0.25"
+                            (click)="setQuickWithdrawAmount(0.25)"
                             [disabled]="userBalance === 0">
                             25%
                         </button>
                         <button 
                             type="button" 
                             class="quick-amount-btn"
-                            (click)="withdrawAmount = userBalance * 0.5"
+                            (click)="setQuickWithdrawAmount(0.5)"
                             [disabled]="userBalance === 0">
                             50%
                         </button>
                         <button 
                             type="button" 
                             class="quick-amount-btn"
-                            (click)="withdrawAmount = userBalance * 0.75"
+                            (click)="setQuickWithdrawAmount(0.75)"
                             [disabled]="userBalance === 0">
                             75%
                         </button>
                         <button 
                             type="button" 
                             class="quick-amount-btn"
-                            (click)="withdrawAmount = userBalance"
+                            (click)="setQuickWithdrawAmount(1)"
                             [disabled]="userBalance === 0">
                             Max
                         </button>
@@ -186,6 +251,14 @@
                         <span>Funds will be transferred back to your wallet</span>
                     </div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Transaction Status -->
+        <div class="transaction-status" *ngIf="processingTransaction">
+            <div class="status-item">
+                <p-progressSpinner [style]="{width: '20px', height: '20px'}"></p-progressSpinner>
+                <span>Processing transaction...</span>
             </div>
         </div>
         
@@ -203,7 +276,7 @@
                 [severity]="activeTab === 'deposit' ? 'success' : 'warn'"
                 [loading]="processingTransaction"
                 [disabled]="!canExecuteTransaction"
-                (click)="executeTransaction()">
+                (click)="executeTransaction(transactionAmount)">
             </p-button>
         </div>
     </div>

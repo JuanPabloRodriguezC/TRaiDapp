@@ -146,9 +146,9 @@
         gap: 0.5rem;
         padding: 0.5rem 1rem;
         border-radius: 0.5rem;
-        background-color: var(--surface-ground);
+        background-color: var(--primary-color);
         border: 1px solid var(--surface-border);
-        color: var(--text-color);
+        color: var(--primary-contrast-color);
         transition: background-color var(--element-transition-duration);
         cursor: pointer;
     
@@ -277,172 +277,209 @@
     .p-dialog-content {
         padding: 0;
     }
-    }
+}
 
     .fund-dialog-content {
-    padding: 1.5rem;
-    
-    .tab-header {
-        display: flex;
-        margin-bottom: 1.5rem;
-        border-bottom: 1px solid var(--surface-border);
+        padding: 1.5rem;
+
+        .token-selector-section {
+        margin-bottom: 1rem;
         
-        .tab-button {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        padding: 1rem;
-        background: transparent;
-        border: none;
-        color: var(--text-color-secondary);
-        cursor: pointer;
-        transition: all var(--element-transition-duration);
-        border-bottom: 2px solid transparent;
-        
-        &:hover {
-            color: var(--text-color);
-            background-color: var(--surface-hover);
+        .input-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: var(--text-color);
         }
         
-        &.active {
-            color: var(--primary-color);
-            border-bottom-color: var(--primary-color);
-            font-weight: 500;
-        }
+        .token-dropdown {
+        width: 100%;
         
-        span {
-            font-size: 1rem;
-        }
-        }
-    }
-    
-    .balance-display {
-        background-color: var(--surface-ground);
-        border: 1px solid var(--surface-border);
-        border-radius: 0.5rem;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-        
-        .balance-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        
-        .balance-label {
-            color: var(--text-color-secondary);
-            font-size: 0.875rem;
-        }
-        
-        .balance-value {
-            color: var(--text-color);
-            font-weight: 600;
-            font-size: 1rem;
-        }
-        }
-    }
-    
-    .tab-content {
-        .tab-pane {
-        .input-section {
-            margin-bottom: 1.5rem;
-            
-            .input-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: var(--text-color);
-            font-weight: 500;
-            font-size: 0.875rem;
-            }
-            
-            .amount-input-container {
-            position: relative;
-            
-            ::ng-deep .amount-input {
-                width: 100%;
+            .token-item {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
                 
-                .amount-input-field {
-                padding-right: 3rem !important;
-                font-size: 1.125rem;
-                font-weight: 500;
+                .token-symbol {
+                font-weight: 600;
+                color: var(--primary-color);
                 }
-            }
-            
-            .currency-label {
-                position: absolute;
-                right: 0.75rem;
-                top: 50%;
-                transform: translateY(-50%);
+                
+                .token-name {
                 color: var(--text-color-secondary);
                 font-size: 0.875rem;
-                font-weight: 500;
-                pointer-events: none;
-            }
-            }
-            
-            .quick-amounts {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.75rem;
-            
-            .quick-amount-btn {
-                flex: 1;
-                padding: 0.5rem;
-                border: 1px solid var(--surface-border);
-                background-color: var(--surface-ground);
-                color: var(--text-color);
-                border-radius: 0.375rem;
-                cursor: pointer;
-                transition: all var(--element-transition-duration);
-                font-size: 0.875rem;
-                
-                &:hover:not(:disabled) {
-                background-color: var(--surface-hover);
-                border-color: var(--primary-color);
                 }
                 
-                &:disabled {
-                opacity: 0.5;
-                cursor: not-allowed;
+                i {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
                 }
-            }
             }
         }
-        
-        .info-section {
-            .info-item {
+    }
+    
+        .tab-header {
             display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
-            padding: 0.75rem;
-            background-color: var(--surface-ground);
-            border-radius: 0.375rem;
-            border-left: 3px solid var(--primary-color);
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--surface-border);
             
-            i {
+            .tab-button {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: transparent;
+            border: none;
+            color: var(--text-color-secondary);
+            cursor: pointer;
+            transition: all var(--element-transition-duration);
+            border-bottom: 2px solid transparent;
+            
+            &:hover {
+                color: var(--text-color);
+                background-color: var(--surface-hover);
+            }
+            
+            &.active {
                 color: var(--primary-color);
-                margin-top: 0.125rem;
-                flex-shrink: 0;
+                border-bottom-color: var(--primary-color);
+                font-weight: 500;
             }
             
             span {
-                font-size: 0.875rem;
-                color: var(--text-color-secondary);
-                line-height: 1.4;
+                font-size: 1rem;
             }
             }
         }
-        }
-    }
-    
-    .dialog-actions {
-        display: flex;
-        gap: 0.75rem;
-        margin-top: 2rem;
         
-        ::ng-deep p-button {
-        flex: 1;
+        .balance-display {
+            background-color: var(--surface-ground);
+            border: 1px solid var(--surface-border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            
+            .balance-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            
+            .balance-label {
+                color: var(--text-color-secondary);
+                font-size: 0.875rem;
+            }
+            
+            .balance-value {
+                color: var(--text-color);
+                font-weight: 600;
+                font-size: 1rem;
+            }
+            }
         }
-    }
+        
+        .tab-content {
+            .tab-pane {
+            .input-section {
+                margin-bottom: 1.5rem;
+                
+                .input-label {
+                display: block;
+                margin-bottom: 0.5rem;
+                color: var(--text-color);
+                font-weight: 500;
+                font-size: 0.875rem;
+                }
+                
+                .amount-input-container {
+                position: relative;
+                
+                ::ng-deep .amount-input {
+                    width: 100%;
+                    
+                    .amount-input-field {
+                    padding-right: 3rem !important;
+                    font-size: 1.125rem;
+                    font-weight: 500;
+                    }
+                }
+                
+                .currency-label {
+                    position: absolute;
+                    right: 0.75rem;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    color: var(--text-color-secondary);
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    pointer-events: none;
+                }
+                }
+                
+                .quick-amounts {
+                display: flex;
+                gap: 0.5rem;
+                margin-top: 0.75rem;
+                
+                .quick-amount-btn {
+                    flex: 1;
+                    padding: 0.5rem;
+                    border: 1px solid var(--surface-border);
+                    background-color: var(--surface-ground);
+                    color: var(--text-color);
+                    border-radius: 0.375rem;
+                    cursor: pointer;
+                    transition: all var(--element-transition-duration);
+                    font-size: 0.875rem;
+                    
+                    &:hover:not(:disabled) {
+                    background-color: var(--surface-hover);
+                    border-color: var(--primary-color);
+                    }
+                    
+                    &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                    }
+                }
+                }
+            }
+            
+            .info-section {
+                .info-item {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.5rem;
+                padding: 0.75rem;
+                background-color: var(--surface-ground);
+                border-radius: 0.375rem;
+                border-left: 3px solid var(--primary-color);
+                
+                i {
+                    color: var(--primary-color);
+                    margin-top: 0.125rem;
+                    flex-shrink: 0;
+                }
+                
+                span {
+                    font-size: 0.875rem;
+                    color: var(--text-color-secondary);
+                    line-height: 1.4;
+                }
+                }
+            }
+            }
+        }
+        
+        .dialog-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 2rem;
+            
+            ::ng-deep p-button {
+            flex: 1;
+            }
+        }
 }

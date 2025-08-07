@@ -199,13 +199,13 @@ export class AgentService {
   // ============================================================================
   async depositForTrading(
     tokenAddress: string,
-    amount: string  // Change to string to handle wei amounts
+    amount: number
   ): Promise<PrepData> {
-    const callData = this.contractCallData.compile('deposit_for_trading',[
-      tokenAddress,
-      amount
-    ]);
-    
+    const callData = this.contractCallData.compile('deposit_for_trading',{
+      token_address: tokenAddress,
+      amount: amount
+  });
+
     return {
       contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
       entrypoint: 'deposit_for_trading',
@@ -214,20 +214,44 @@ export class AgentService {
   }
   
   async withdrawFromTrading(
-  tokenAddress: string,
-  amount: string  // Change to string to handle wei amounts
-): Promise<PrepData> {
-  const callData = this.contractCallData.compile('withdraw_from_trading',[
-    tokenAddress,
-    amount
-  ]);
+    tokenAddress: string,
+    amount: number  // Change to string to handle wei amounts
+  ): Promise<PrepData> {
+    const callData = this.contractCallData.compile('withdraw_from_trading',[
+      tokenAddress,
+      amount
+    ]);
+    
+    return {
+      contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
+      entrypoint: 'withdraw_from_trading',
+      calldata: callData,
+    };
+  }
   
-  return {
-    contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
-    entrypoint: 'withdraw_from_trading',
-    calldata: callData,
-  };
-}
+  async getUserSubscriptions(userId: string): Promise<UserSubscription[]> {
+    const result = await this.db.query(`
+      SELECT 
+        s.*,
+        a.config as agent_config,
+        a.name as agent_name
+      FROM user_subscriptions s
+      JOIN agents a ON s.agent_id = a.id
+      WHERE s.user_id = $1 AND s.is_active = true
+      ORDER BY s.subscribed_at DESC
+    `, [userId]);
+
+    return result.rows.map(row => ({
+      agentId: row.agent_id,
+      userId: row.user_id,
+      txHash: row.tx_hash,
+      subscribedAt: row.subscribed_at,
+      isActive: row.is_active,
+      contractVerified: row.contract_verified,
+      agentConfig: JSON.parse(row.agent_config),
+      userConfig: JSON.parse(row.user_config)
+    }));
+  }
 
   async prepareSubscription(
     agentId: string,
@@ -252,7 +276,7 @@ export class AgentService {
     const contractConfig = this.convertToContractConfig(userConfig);
 
     // Prepare contract call data
-
+    
     const prepCallData = this.contractCallData.compile('subscribe_to_agent', {
       agent_id: agentId,
       user_config: {
@@ -264,7 +288,7 @@ export class AgentService {
         stop_loss_threshold: contractConfig.stop_loss_threshold,
       }
     });
-
+    
     return {
       contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
       entrypoint: 'subscribe_to_agent',
@@ -291,7 +315,7 @@ export class AgentService {
       `, [userId, agentId, txHash, JSON.stringify(userConfig)]);
 
       // Start background verification process
-      this.verifySubscriptionAsync(userId, agentId, txHash);
+      this.verifySubscriptionAsync(userId, agentId);
       
     } catch (error) {
       console.error('Subscription confirmation error:', error);
@@ -299,92 +323,15 @@ export class AgentService {
     }
   }
 
-  private validateUserConfig(userConfig: UserConfig, agentConfig: any): void {
-    const errors: string[] = [];
-
-    // Validate automation level
-    const automationLevels = ['manual', 'alert_only', 'auto'];
-    const userLevel = automationLevels.indexOf(userConfig.automationLevel);
-    const agentMaxLevel = automationLevels.indexOf(agentConfig.maxAutomationLevel || 'full_auto');
-    
-    if (userLevel > agentMaxLevel) {
-      errors.push(`Agent doesn't support ${userConfig.automationLevel} automation level`);
-    }
-
-    // Validate trades per day
-    if (userConfig.maxTradesPerDay > agentConfig.maxTradesPerDay) {
-      errors.push(`Max trades per day (${userConfig.maxTradesPerDay}) exceeds agent limit (${agentConfig.maxTradesPerDay})`);
-    }
-
-    // Validate risk tolerance
-    if (userConfig.riskTolerance > agentConfig.maxRiskTolerance) {
-      errors.push(`Risk tolerance (${userConfig.riskTolerance}%) exceeds agent limit (${agentConfig.maxRiskTolerance * 100}%)`);
-    }
-
-    // Validate stop loss
-    if (userConfig.stopLossThreshold < agentConfig.minStopLoss) {
-      errors.push(`Stop loss threshold (${userConfig.stopLossThreshold}%) is below agent minimum (${agentConfig.minStopLoss * 100}%)`);
-    }
-
-    // Validate numeric ranges
-    if (userConfig.riskTolerance < 0 || userConfig.riskTolerance > 1) {
-      errors.push('Risk tolerance must be between 0% and 100%');
-    }
-
-    if (userConfig.stopLossThreshold < 0 || userConfig.stopLossThreshold > 100) {
-      errors.push('Stop loss threshold must be between 0% and 100%');
-    }
-
-    if (userConfig.maxTradesPerDay < 1 || userConfig.maxTradesPerDay > 1000) {
-      errors.push('Max trades per day must be between 1 and 1000');
-    }
-
-    // Validate wei amounts (basic check)
-    try {
-      BigInt(userConfig.maxApiCostPerDay);
-      BigInt(userConfig.maxPositionSize);
-    } catch (e) {
-      errors.push('Invalid wei amount format');
-    }
-
-    if (errors.length > 0) {
-      throw new Error(`Validation failed: ${errors.join(', ')}`);
-    }
-  }
-
-  private convertToContractConfig(userConfig: UserConfig): ContractUserConfig {
-    return {
-      automation_level: this.encodeAutomationLevel(userConfig.automationLevel),
-      max_trades_per_day: userConfig.maxTradesPerDay,
-      max_api_cost_per_day: userConfig.maxApiCostPerDay,
-      risk_tolerance: Math.floor(userConfig.riskTolerance * 100), // Convert percentage to basis points
-      max_position_size: userConfig.maxPositionSize,
-      stop_loss_threshold: Math.floor(userConfig.stopLossThreshold * 10000), // Convert percentage to basis points
-    };
-  }
-
-  async getUserSubscriptions(userId: string): Promise<UserSubscription[]> {
-    const result = await this.db.query(`
-      SELECT 
-        s.*,
-        a.config as agent_config,
-        a.name as agent_name
-      FROM user_subscriptions s
-      JOIN agents a ON s.agent_id = a.id
-      WHERE s.user_id = $1 AND s.is_active = true
-      ORDER BY s.subscribed_at DESC
-    `, [userId]);
-
-    return result.rows.map(row => ({
-      agentId: row.agent_id,
-      userId: row.user_id,
-      txHash: row.tx_hash,
-      subscribedAt: row.subscribed_at,
-      isActive: row.is_active,
-      contractVerified: row.contract_verified,
-      agentConfig: JSON.parse(row.agent_config),
-      userConfig: JSON.parse(row.user_config)
-    }));
+  private async verifySubscriptionAsync(userId: string, agentId: string): Promise<void> {
+    // Wait for transaction confirmation, then verify
+    setTimeout(async () => {
+      try {
+        await this.verifySubscription(userId, agentId);
+      } catch (error) {
+        console.error('Background verification failed:', error);
+      }
+    }, 10000); // Wait 10 seconds for tx confirmation
   }
 
   async verifySubscription(userId: string, agentId: string): Promise<boolean> {
@@ -459,8 +406,7 @@ export class AgentService {
 
   // ============================================================================
   // AGENT EXECUTION (Existing functionality)
-  // ============================================================================
-
+  // ============================================================================ 
   async runAgent(userId: string, agentId: string, marketContext: MarketContext): Promise<TradingDecision> {
     // Verify user is subscribed
     const subscription = await this.db.query(`
@@ -491,6 +437,70 @@ export class AgentService {
   // HELPER METHODS
   // ============================================================================
 
+  private validateUserConfig(userConfig: UserConfig, agentConfig: any): void {
+    const errors: string[] = [];
+
+    // Validate automation level
+    const automationLevels = ['manual', 'alert_only', 'auto'];
+    const userLevel = automationLevels.indexOf(userConfig.automationLevel);
+    const agentMaxLevel = automationLevels.indexOf(agentConfig.maxAutomationLevel || 'full_auto');
+    
+    if (userLevel > agentMaxLevel) {
+      errors.push(`Agent doesn't support ${userConfig.automationLevel} automation level`);
+    }
+
+    // Validate trades per day
+    if (userConfig.maxTradesPerDay > agentConfig.maxTradesPerDay) {
+      errors.push(`Max trades per day (${userConfig.maxTradesPerDay}) exceeds agent limit (${agentConfig.maxTradesPerDay})`);
+    }
+
+    // Validate risk tolerance
+    if (userConfig.riskTolerance > agentConfig.maxRiskTolerance) {
+      errors.push(`Risk tolerance (${userConfig.riskTolerance}%) exceeds agent limit (${agentConfig.maxRiskTolerance * 100}%)`);
+    }
+
+    // Validate stop loss
+    if (userConfig.stopLossThreshold < agentConfig.minStopLoss) {
+      errors.push(`Stop loss threshold (${userConfig.stopLossThreshold}%) is below agent minimum (${agentConfig.minStopLoss * 100}%)`);
+    }
+
+    // Validate numeric ranges
+    if (userConfig.riskTolerance < 0 || userConfig.riskTolerance > 1) {
+      errors.push('Risk tolerance must be between 0% and 100%');
+    }
+
+    if (userConfig.stopLossThreshold < 0 || userConfig.stopLossThreshold > 100) {
+      errors.push('Stop loss threshold must be between 0% and 100%');
+    }
+
+    if (userConfig.maxTradesPerDay < 1 || userConfig.maxTradesPerDay > 1000) {
+      errors.push('Max trades per day must be between 1 and 1000');
+    }
+
+    // Validate wei amounts (basic check)
+    try {
+      BigInt(userConfig.maxApiCostPerDay);
+      BigInt(userConfig.maxPositionSize);
+    } catch (e) {
+      errors.push('Invalid wei amount format');
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Validation failed: ${errors.join(', ')}`);
+    }
+  }
+
+  private convertToContractConfig(userConfig: UserConfig): ContractUserConfig {
+    return {
+      automation_level: this.encodeAutomationLevel(userConfig.automationLevel),
+      max_trades_per_day: userConfig.maxTradesPerDay,
+      max_api_cost_per_day: userConfig.maxApiCostPerDay,
+      risk_tolerance: Math.floor(userConfig.riskTolerance * 100), // Convert percentage to basis points
+      max_position_size: userConfig.maxPositionSize,
+      stop_loss_threshold: Math.floor(userConfig.stopLossThreshold * 10000), // Convert percentage to basis points
+    };
+  }
+
   private async loadAgentFromDB(agentId: string): Promise<AgentConfig> {
     const result = await this.db.query(
       'SELECT config FROM agents WHERE id = $1',
@@ -502,22 +512,6 @@ export class AgentService {
     }
 
     return JSON.parse(result.rows[0].config);
-  }
-
-  private async verifySubscriptionAsync(userId: string, agentId: string, txHash: string): Promise<void> {
-    // Wait for transaction confirmation, then verify
-    setTimeout(async () => {
-      try {
-        await this.verifySubscription(userId, agentId);
-      } catch (error) {
-        console.error('Background verification failed:', error);
-      }
-    }, 10000); // Wait 10 seconds for tx confirmation
-  }
-
-  private encodeStrategy(strategy: string): number {
-    const strategies = { conservative: 0, aggressive: 1, swing: 2, scalping: 3 };
-    return strategies[strategy as keyof typeof strategies] || 0;
   }
 
   private encodeAutomationLevel(level: string): number {
