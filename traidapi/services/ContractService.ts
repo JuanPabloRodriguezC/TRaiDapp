@@ -1,5 +1,5 @@
 import { Contract, RpcProvider, Account, CallData, num, json } from 'starknet';
-import { AgentConfig, ContractSubscription, ContractBalance } from '../types/agent';
+import { AgentConfig, ContractSubscription, UserTokenBalance } from '../types/agent';
 import fs from 'fs';
 
 export interface ContractConfig {
@@ -51,7 +51,7 @@ export class ContractService {
         min_stop_loss_threshold: Math.floor(agentConfig.minStopLoss * 10000),
       }
     );
-    console.log('Call data for create_agent:', callData);
+
     const txHash = await this.account.execute({
       contractAddress: this.contract.address,
       entrypoint: 'create_agent_config',
@@ -106,17 +106,17 @@ export class ContractService {
     return result
   }
 
-  async getUserBalance(user: string, tokenAddress: string): Promise<ContractBalance> {
-    const callData = CallData.compile([user, tokenAddress]);
-    const result = await this.contract.call('get_user_balance', callData) as any;
-    
-    return {
-      user: result.user,
-      tokenAddress: result.token_address,
-      balance: BigInt(result.balance),
-      reservedForTrading: BigInt(result.reserved_for_trading),
-      lastUpdated: BigInt(result.last_updated)
-    };
+  async getUserBalances(user: string): Promise<UserTokenBalance[]> {
+    try {
+        const callData = this.callData.compile('get_user_balances', { user });
+        const result = await this.contract.call('get_user_balances', callData);
+        
+        // Ensure result is an array before transforming
+        const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
+        return this.transformBalanceData(parsedResult);
+    } catch (error) {
+        throw new Error(`Contract call failed: ${error}`);
+    }
   }
 
   async canAgentTrade(user: string, agentId: string, amount: bigint): Promise<boolean> {
@@ -139,4 +139,13 @@ export class ContractService {
     const levels = { manual: 0, alert_only: 1, auto: 2 };
     return levels[level as keyof typeof levels] || 0;
   }
+
+  private transformBalanceData(rawData: any[]): UserTokenBalance[] {
+    return rawData.map(([tokenAddress, userBalance]) => ({
+        tokenAddress: tokenAddress.toString(),
+        balance: userBalance.balance?.toString() || '0',
+        locked: userBalance.locked?.toString() || '0',
+        // Add token metadata if available
+    }));
+}
 }

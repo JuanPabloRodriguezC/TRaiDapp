@@ -16,6 +16,11 @@ pub trait IAgentManager<TContractState> {
         max_position_size: u256,
         min_stop_loss_threshold: u32
     );
+
+    fn add_token_address(
+        ref self: TContractState,
+        token_address: ContractAddress
+    );
     
     fn subscribe_to_agent(
         ref self: TContractState,
@@ -126,6 +131,11 @@ pub trait IAgentManager<TContractState> {
         user: ContractAddress,
         token_address: ContractAddress
     ) -> UserBalance;
+
+    fn get_user_balances(
+        self: @TContractState,
+        user: ContractAddress
+    ) -> Array<(ContractAddress, UserBalance)>;
     
     fn get_agent_performance(
         self: @TContractState,

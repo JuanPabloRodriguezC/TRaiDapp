@@ -106,12 +106,10 @@ export interface ContractSubscription {
   isAuthorized: boolean;
 }
 
-export interface ContractBalance {
-  user: string;
+export interface UserTokenBalance {
   tokenAddress: string;
-  balance: bigint;
-  reservedForTrading: bigint;
-  lastUpdated: bigint;
+  balance: string;
+  usdValue?: string;
 }
 
 export interface MetricData {

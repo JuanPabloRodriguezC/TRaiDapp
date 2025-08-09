@@ -151,6 +151,23 @@ router.post('/withdraw', async (req: any, res) => {
   }
 });
 
+router.get('/user/:userId/balances', async (req: any, res) => {
+  try {
+    const contractService = req.services.get('contractService');
+    const { userId } = req.params;
+
+    if (!userId) {
+      res.status(400).json({ error: 'Missing required field: userId' });
+      return;
+    }
+
+    const balances = await contractService.getUserBalances(userId);
+    res.json(balances);
+  } catch (error: any) {
+    console.error('Balances fetch error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Prepare subscription transaction (returns data for frontend wallet)
 router.post('/:agentId/prepare-subscription', async (req: any, res) => {

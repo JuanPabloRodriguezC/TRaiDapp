@@ -57,6 +57,7 @@ export class AgentService {
   }
 
   depositForTrading(tokenAddress: string, amount: string): Observable<string> {
+    const contractAddress = '0x06dba12b81f6abb06b184dc42df57ebda6572eacf2a142bf0d1426c27bc92adf'; // Example contract address
     const userId = this.walletService.getConnectedAddress();
     
     if (!userId) {
@@ -64,7 +65,7 @@ export class AgentService {
     }
 
     // Step 1: Check allowance and handle approval if needed
-    return from(this.walletService.checkAllowance(tokenAddress, '0x056d9186ad9027583ffb68f77caa8e08da30060b3755c1adcb2c07eaefa6951c')).pipe(
+    return from(this.walletService.checkAllowance(tokenAddress, contractAddress)).pipe(
       switchMap(allowance => {
         const needsApproval = BigInt(allowance) < BigInt(amount);
 
@@ -72,7 +73,7 @@ export class AgentService {
           // Handle approval first
           return from(this.walletService.approveToken(
             tokenAddress,
-            '0x056d9186ad9027583ffb68f77caa8e08da30060b3755c1adcb2c07eaefa6951c',
+            contractAddress,
             amount
           )).pipe(
             switchMap(approveTx => {``
@@ -356,6 +357,16 @@ export class AgentService {
     }
 
     return this.http.get<any[]>(`${this.apiUrl}/agents/user/${userId}/subscriptions-detailed`)
+      .pipe(catchError(this.handleError));
+  }
+
+  getUserBalances(): Observable<any[]> {
+    const userId = this.walletService.getConnectedAddress();
+
+    if (!userId) {
+      return throwError(() => new Error('Wallet not connected'));
+    }
+    return this.http.get<any[]>(`${this.apiUrl}/agents/user/${userId}/balances`)
       .pipe(catchError(this.handleError));
   }
 

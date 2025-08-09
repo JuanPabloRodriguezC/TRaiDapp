@@ -1,6 +1,6 @@
 #[starknet::contract]
 pub mod TraidingAgents {
-    use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
+use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
     use crate::interfaces::ITraidingAgents::{ IAgentManager };
     use crate::interfaces::IERC20::{ IERC20Dispatcher, IERC20DispatcherTrait };
     use crate::utils::types::{
@@ -11,18 +11,16 @@ pub mod TraidingAgents {
         AgentSubscribed, AgentUnsubscribed,AgentDecision, TradeExecuted, BalanceUpdated, AuthorizationChanged,
         ReservationMade, ReservationReleased, TradeSettled, FeesAllocated, PlatformFeesWithdrawn
     };
-    use starknet::storage::{ StoragePointerReadAccess, StoragePointerWriteAccess, Map, StoragePathEntry };
+    use starknet::storage::{ StoragePointerReadAccess, StoragePointerWriteAccess, Map, Vec, VecTrait, MutableVecTrait, StoragePathEntry };
 
     #[storage]
     struct Storage {
         agent_configs: Map<felt252, AgentConfig>,
+        agent_ids: Vec<felt252>,
+        token_addresses: Vec<ContractAddress>,
         user_subscriptions: Map<(ContractAddress, felt252), UserSubscription>,
         user_balances: Map<(ContractAddress, ContractAddress), UserBalance>,
-        
-        // Agent-specific reservations: (user, agent_id, token) -> reserved_amount
-        agent_reservations: Map<(ContractAddress, felt252, ContractAddress), u256>,
-        
-        // Trading decisions
+        agent_reservations: Map<(ContractAddress, felt252, ContractAddress), u256>,// Agent-specific reservations: (user, agent_id, token) -> reserved_amount
         authorized_recorders: Map<ContractAddress, bool>, // Backend services that can record decisions
         decisions: Map<u32, TradeDecision>,
         decision_counter: u32,
@@ -53,7 +51,6 @@ pub mod TraidingAgents {
     fn constructor(ref self: ContractState, admin: ContractAddress) {
         self.admin.write(admin);
     }
-    
 
     #[abi(embed_v0)]
     impl AgentManagerImpl of IAgentManager<ContractState> {
@@ -87,6 +84,15 @@ pub mod TraidingAgents {
             };
 
             self.agent_configs.entry(agent_id).write(config);
+        }
+
+        fn add_token_address(
+            ref self: ContractState,
+            token_address: ContractAddress
+        ) {
+            assert(get_caller_address() == self.admin.read(), 'Only admin can add tokens');
+
+            self.token_addresses.push(token_address);
         }
 
         fn subscribe_to_agent(
@@ -179,6 +185,16 @@ pub mod TraidingAgents {
             
             // Execute the actual token transfer
             let token = IERC20Dispatcher { contract_address: token_address };
+
+            // Check user's token balance
+            let user_balance = token.balance_of(user);
+            assert(user_balance >= amount, 'Insufficient token balance');
+
+            // Check allowance - this is likely the issue
+            let allowance = token.allowance(user, contract_address);
+            assert(allowance >= amount, 'Insufficient allowance');
+
+            // Execute the actual token transfer
             let success = token.transfer_from(user, contract_address, amount);
             assert(success, 'Token transfer failed');
             
@@ -512,6 +528,22 @@ pub mod TraidingAgents {
             let caller = get_caller_address();
             assert(caller == user || caller == self.admin.read() || self.authorized_recorders.entry(caller).read(), 'caller not authorized');
             self.user_balances.entry((user, token_address)).read()
+        }
+
+        fn get_user_balances(
+            self: @ContractState,
+            user: ContractAddress
+        ) -> Array<(ContractAddress, UserBalance)> {
+            let caller = get_caller_address();
+            assert(caller == user || caller == self.admin.read() || self.authorized_recorders.entry(caller).read(), 'caller not authorized');
+            
+            let mut balances = array![];
+            for i in 0..self.token_addresses.len() {
+                let token_address = self.token_addresses.at(i).read();
+                let balance = self.user_balances.entry((user, token_address)).read();
+                balances.append((token_address, balance));
+            }
+            balances
         }
 
         fn get_agent_performance(
