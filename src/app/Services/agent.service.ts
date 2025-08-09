@@ -63,13 +63,8 @@ export class AgentService {
       return throwError(() => new Error('Wallet not connected'));
     }
 
-    console.log('=== AGENT SERVICE DEPOSIT ===');
-    console.log('Token Address:', tokenAddress);
-    console.log('Amount:', amount);
-    console.log('User ID:', userId);
-
     // Step 1: Check allowance and handle approval if needed
-    return from(this.walletService.checkAllowance(tokenAddress, '0x00a58481e3cc89a662f3ac8afe713c123e17d3a73650a9f19773ed9dd84bbe6a')).pipe(
+    return from(this.walletService.checkAllowance(tokenAddress, '0x056d9186ad9027583ffb68f77caa8e08da30060b3755c1adcb2c07eaefa6951c')).pipe(
       switchMap(allowance => {
         const needsApproval = BigInt(allowance) < BigInt(amount);
 
@@ -77,7 +72,7 @@ export class AgentService {
           // Handle approval first
           return from(this.walletService.approveToken(
             tokenAddress,
-            '0x00a58481e3cc89a662f3ac8afe713c123e17d3a73650a9f19773ed9dd84bbe6a',
+            '0x056d9186ad9027583ffb68f77caa8e08da30060b3755c1adcb2c07eaefa6951c',
             amount
           )).pipe(
             switchMap(approveTx => {``
@@ -88,13 +83,13 @@ export class AgentService {
             switchMap(() => {
               console.log('✅ Approval confirmed, proceeding with deposit');
               // Proceed with deposit after approval
-              return this.executeDepositTransaction(tokenAddress, amount, userId);
+              return this.executeDepositTransaction(tokenAddress, amount);
             })
           );
         } else {
           console.log('✅ Sufficient allowance, proceeding with deposit');
           // Direct deposit
-          return this.executeDepositTransaction(tokenAddress, amount, userId);
+          return this.executeDepositTransaction(tokenAddress, amount);
         }
       }),
       catchError(error => {
@@ -121,7 +116,7 @@ export class AgentService {
     );
   }
 
-  private executeDepositTransaction(tokenAddress: string, amount: string, userId: string): Observable<string> {
+  private executeDepositTransaction(tokenAddress: string, amount: string): Observable<string> {
     console.log('🔄 Executing deposit transaction...');
     
     // Prepare the request payload
@@ -144,7 +139,6 @@ export class AgentService {
             url: error.url
           });
           
-          // Try to extract more specific error info
           const errorDetails = error.error?.message || error.error?.detail || 'Invalid request parameters';
           throw new Error(`Bad Request: ${errorDetails}`);
         }
@@ -433,8 +427,6 @@ export class AgentService {
       if (!account) {
         throw new Error('No wallet account available. Please connect your wallet.');
       }
-      
-      console.log('Executing wallet transaction with prep data:', prepData);
       
       const result = await account.execute({
         contractAddress: prepData.contractAddress,

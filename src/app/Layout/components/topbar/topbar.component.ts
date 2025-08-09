@@ -14,7 +14,7 @@ import { TagModule } from 'primeng/tag';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { ToastModule } from 'primeng/toast';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, lastValueFrom } from 'rxjs';
 import { WalletInfo } from '../../../interfaces/user';
 import { LayoutService } from '../../service/layout.service';
 import { WalletService } from '../../../services/wallet.service';
@@ -293,18 +293,18 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
     try {
       // Convert amount to wei
       const amountWei = (amount * Math.pow(10, this.selectedToken.decimals)).toString();
-      
-      console.log('=== STARTING DEPOSIT ===');
-      console.log('Amount:', amount, this.selectedToken.symbol);
-      console.log('Amount (wei):', amountWei);
-      console.log('Token:', this.selectedToken.address);
-      console.log('Contract:', this.contractAddress);
-      
+
       // Let the service handle the entire deposit flow (including approval check)
-      const result = await (await this.agentService.depositForTrading(
+      const result = this.agentService.depositForTrading(
         this.selectedToken.address,
         amountWei
-      )).toPromise();
+      );
+
+      const txHash = await lastValueFrom(result).then(res => {
+        this.displayDepositDialog = false;
+        this.showMessage('success', 'Deposit Successful', 
+          `${amount} ${this.selectedToken?.symbol} deposited successfully. Transaction: ${this.formatTxHash(res)}`);
+      });
 
     } catch (error: any) {
       console.error('❌ Deposit failed:', error);
