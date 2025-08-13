@@ -106,19 +106,6 @@ export class ContractService {
     return result
   }
 
-  async getUserBalances(user: string): Promise<UserTokenBalance[]> {
-    try {
-        const callData = this.callData.compile('get_user_balances', { user });
-        const result = await this.contract.call('get_user_balances', callData);
-        
-        // Ensure result is an array before transforming
-        const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
-        return this.transformBalanceData(parsedResult);
-    } catch (error) {
-        throw new Error(`Contract call failed: ${error}`);
-    }
-  }
-
   async canAgentTrade(user: string, agentId: string, amount: bigint): Promise<boolean> {
     const callData = CallData.compile([user, agentId, amount]);
     const result = await this.contract.call('can_agent_trade', callData) as any[];
@@ -140,12 +127,4 @@ export class ContractService {
     return levels[level as keyof typeof levels] || 0;
   }
 
-  private transformBalanceData(rawData: any[]): UserTokenBalance[] {
-    return rawData.map(([tokenAddress, userBalance]) => ({
-        tokenAddress: tokenAddress.toString(),
-        balance: userBalance.balance?.toString() || '0',
-        locked: userBalance.locked?.toString() || '0',
-        // Add token metadata if available
-    }));
-}
 }

@@ -4,7 +4,8 @@ import { ContractService } from './ContractService';
 import { PredictionService } from './PredictionService';
 import { MarketDataService } from './MarketDataService';
 import { Agent, AgentConfig, MarketContext, TradingDecision, AgentCreationResult, 
-  PrepData, UserSubscription, UserConfig, ContractUserConfig, MetricData } from '../types/agent';
+  PrepData, UserSubscription, UserConfig, ContractUserConfig, MetricData, 
+  UserTokenBalance} from '../types/agent';
 import { CallData, json } from 'starknet';
 import fs from 'fs';
 
@@ -403,6 +404,38 @@ export class AgentService {
 
     return result.rows;
   }
+
+  async getUserBalances(userId: string): Promise<UserTokenBalance[]> {
+    try {
+      const query = `
+        SELECT 
+          ub.user_address,
+          ub.token_address,
+          ub.balance,
+          ub.locked_balance,
+          ub.last_updated,
+          t.symbol,
+          t.name,
+          t.decimals
+        FROM user_balances ub
+        LEFT JOIN tokens t ON ub.token_address = t.address
+        WHERE ub.user_address = $1
+        AND (ub.balance > 0 OR ub.locked_balance > 0)
+        ORDER BY t.symbol ASC
+      `;
+      
+      const result = await this.db.query(query, [userId]);
+      
+      return result.rows.map(row => ({
+        tokenAddress: row.token_address,
+        balance: row.balance.toString(),
+        usdValue: row.usd_value ? row.usd_value.toString() : 0,
+      }));
+    } catch (error) {
+      throw new Error(`Failed to fetch balances for user ${userId}: ${error}`);
+    }
+  }
+
 
   // ============================================================================
   // AGENT EXECUTION (Existing functionality)

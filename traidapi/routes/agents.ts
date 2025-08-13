@@ -153,15 +153,15 @@ router.post('/withdraw', async (req: any, res) => {
 
 router.get('/user/:userId/balances', async (req: any, res) => {
   try {
-    const contractService = req.services.get('contractService');
+    const agentService = req.services.get('agentService');
     const { userId } = req.params;
 
-    if (!userId) {
+    if (!userId || !userId.startsWith('0x')) {
       res.status(400).json({ error: 'Missing required field: userId' });
       return;
     }
 
-    const balances = await contractService.getUserBalances(userId);
+    const balances = await agentService.getUserBalances(userId);
     res.json(balances);
   } catch (error: any) {
     console.error('Balances fetch error:', error);
