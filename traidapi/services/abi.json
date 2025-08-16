@@ -198,6 +198,18 @@
       },
       {
         "type": "function",
+        "name": "add_token_address",
+        "inputs": [
+          {
+            "name": "token_address",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
         "name": "subscribe_to_agent",
         "inputs": [
           {
@@ -207,6 +219,18 @@
           {
             "name": "user_config",
             "type": "contracts::utils::types::UserConfig"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "unsubscribe_from_agent",
+        "inputs": [
+          {
+            "name": "agent_id",
+            "type": "core::felt252"
           }
         ],
         "outputs": [],
@@ -492,6 +516,22 @@
         "outputs": [
           {
             "type": "contracts::utils::types::UserBalance"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "get_user_balances",
+        "inputs": [
+          {
+            "name": "user",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<(core::starknet::contract_address::ContractAddress, contracts::utils::types::UserBalance)>"
           }
         ],
         "state_mutability": "view"
@@ -908,6 +948,23 @@
   },
   {
     "type": "event",
+    "name": "contracts::utils::events::AgentUnsubscribed",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "user",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "agent_id",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "contracts::TraidingAgents::TraidingAgents::Event",
     "kind": "enum",
     "variants": [
@@ -959,6 +1016,11 @@
       {
         "name": "PlatformFeesWithdrawn",
         "type": "contracts::utils::events::PlatformFeesWithdrawn",
+        "kind": "nested"
+      },
+      {
+        "name": "AgentUnsubscribed",
+        "type": "contracts::utils::events::AgentUnsubscribed",
         "kind": "nested"
       }
     ]
