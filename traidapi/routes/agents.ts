@@ -114,6 +114,48 @@ router.post('/deposit', async (req: any, res) => {
   }
 });
 
+router.post('/confirm-deposit', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { userId, tokenAddress, amount, txHash } = req.body;
+
+    if (!userId || !tokenAddress || !amount || !txHash) {
+      res.status(400).json({ 
+        error: 'Missing required fields: userId, tokenAddress, amount, txHash' 
+      });
+      return;
+    }
+
+    await agentService.confirmDeposit(userId, tokenAddress, amount, txHash);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Deposit confirmation error:', error);
+    res.status(500).json({ error: error.message || String(error) });
+  }
+});
+
+// Add verification route
+router.post('/verify-deposit', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { userId, tokenAddress, txHash } = req.body;
+
+    if (!userId || !tokenAddress || !txHash) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: userId, tokenAddress, txHash' 
+      });
+    }
+
+    const verified = await agentService.verifyDeposit(userId, tokenAddress, txHash);
+    return res.json({ verified });
+  } catch (error) {
+    console.error('Deposit verification error:', error);
+    return res.status(500).json({ error: (error as Error).message || String(error) });
+    
+  }
+});
+
+
 // Withdraw from contract
 router.post('/withdraw', async (req: any, res) => {
   try {
@@ -372,7 +414,7 @@ router.get('/user/:userId/trades', async (req: any, res) => {
   
 });
 
-router.get('/user/:userId/allocations', async (req: any, res) => {
+router.get('/user/:userId/balances', async (req: any, res) => {
   const agentService = req.services.get('agentService');
   const { userId } = req.params;
 
@@ -381,7 +423,7 @@ router.get('/user/:userId/allocations', async (req: any, res) => {
     return;
   }
 
-  const allocations = await agentService.getUserAssetAllocation(userId);
+  const allocations = await agentService.getUserBalances(userId);
   res.json(allocations);
 });
 

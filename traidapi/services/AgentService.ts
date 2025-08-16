@@ -168,39 +168,12 @@ export class AgentService {
     };
   }
 
-  async getAgentGraphData(agentId: string): Promise<MetricData[]> {
-    const result = await this.db.query(`
-      SELECT 
-      ap.total_return,
-      ap.win_rate * 100 as win_rate_pct,
-      ap.sharpe_ratio,
-      ap.max_drawdown * 100 as max_drawdown_pct,
-      ap.calculated_at as timestamp
-    FROM agent_performance ap
-    WHERE ap.agent_id = $1
-    ORDER BY ap.calculated_at DESC
-    LIMIT 30
-  `, [agentId]);
-
-    const metrics: MetricData[] = [];
-    result.rows.forEach(row => {
-      metrics.push(
-        { metric_name: 'total_return_pct', metric_value: parseFloat(row.total_return) || 0, timestamp: row.timestamp },
-        { metric_name: 'win_rate_pct', metric_value: parseFloat(row.win_rate_pct) || 0, timestamp: row.timestamp },
-        { metric_name: 'sharpe_ratio', metric_value: parseFloat(row.sharpe_ratio) || 0, timestamp: row.timestamp },
-        { metric_name: 'max_drawdown_pct', metric_value: parseFloat(row.max_drawdown_pct) || 0, timestamp: row.timestamp }
-      );
-    });
-
-    return metrics;
-  }
-
   // ============================================================================
   // SUBSCRIPTION MANAGEMENT
   // ============================================================================
   async depositForTrading(
     tokenAddress: string,
-    amount: number
+    amount: string
   ): Promise<PrepData> {
     const callData = this.contractCallData.compile('deposit_for_trading',{
       token_address: tokenAddress,
@@ -212,6 +185,114 @@ export class AgentService {
       entrypoint: 'deposit_for_trading',
       calldata: callData,
     };
+  }
+
+  async confirmDeposit(
+    userId: string,
+    tokenAddress: string,
+    amount: string,
+    txHash: string
+  ): Promise<void> {
+    try {
+      // Use ON CONFLICT to handle insert or update
+      await this.db.query(`
+        INSERT INTO user_balances (user_address, token_address, balance, last_updated)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (user_address, token_address) 
+        DO UPDATE SET
+          balance = user_balances.balance + $3,
+          last_updated = NOW()
+      `, [userId, tokenAddress, amount]);
+
+      // Log the deposit transaction for audit trail
+      await this.db.query(`
+        INSERT INTO deposit_transactions (
+          user_address, token_address, amount, tx_hash, confirmed_at, verified
+        )
+        VALUES ($1, $2, $3, $4, NOW(), false)
+      `, [userId, tokenAddress, amount, txHash]);
+
+    } catch (error) {
+      console.error('Deposit confirmation error:', error);
+      throw new Error(`Failed to confirm deposit: ${error}`);
+    }
+  }
+
+  private async verifyDepositAsync(
+    userId: string, 
+    tokenAddress: string, 
+    txHash: string
+  ): Promise<void> {
+    // Wait for transaction confirmation, then verify
+    setTimeout(async () => {
+      try {
+        await this.verifyDeposit(userId, tokenAddress, txHash);
+      } catch (error) {
+        console.error('Background deposit verification failed:', error);
+      }
+    }, 10000); // Wait 10 seconds for tx confirmation
+  }
+
+  async verifyDeposit(
+    userId: string, 
+    tokenAddress: string, 
+    txHash: string
+  ): Promise<boolean> {
+    try {
+      // Get actual balance from contract
+      const contractBalance = await this.contractService.getUserTokenBalance(userId, tokenAddress);
+      
+      // Get our database balance
+      const dbResult = await this.db.query(`
+        SELECT balance FROM user_balances 
+        WHERE user_address = $1 AND token_address = $2
+      `, [userId, tokenAddress]);
+
+      const dbBalance = dbResult.rows[0]?.balance || '0';
+      
+      // Compare balances (allow for small discrepancies due to timing)
+      const contractBalanceStr = contractBalance.toString();
+      const isVerified = contractBalanceStr === dbBalance;
+
+      // Update verification status
+      await this.db.query(`
+        UPDATE deposit_transactions 
+        SET verified = $3, verified_at = NOW()
+        WHERE user_address = $1 AND token_address = $2 AND tx_hash = $4
+      `, [userId, tokenAddress, isVerified, txHash]);
+
+      if (!isVerified) {
+        console.warn(`Balance mismatch for ${userId}:${tokenAddress} - Contract: ${contractBalanceStr}, DB: ${dbBalance}`);
+        
+        // Optionally sync the correct balance
+        await this.syncUserBalance(userId, tokenAddress, contractBalanceStr);
+      }
+
+      return isVerified;
+    } catch (error) {
+      console.error('Deposit verification failed:', error);
+      
+      // Mark as verification failed
+      await this.db.query(`
+        UPDATE deposit_transactions 
+        SET verified = false, verification_error = $3, verified_at = NOW()
+        WHERE user_address = $1 AND tx_hash = $2
+      `, [userId, txHash, error]);
+      
+      return false;
+    }
+  }
+
+  private async syncUserBalance(
+    userId: string, 
+    tokenAddress: string, 
+    correctBalance: string
+  ): Promise<void> {
+    await this.db.query(`
+      UPDATE user_balances 
+      SET balance = $3, last_updated = NOW()
+      WHERE user_address = $1 AND token_address = $2
+    `, [userId, tokenAddress, correctBalance]);
   }
   
   async withdrawFromTrading(
@@ -229,30 +310,7 @@ export class AgentService {
       calldata: callData,
     };
   }
-  
-  async getUserSubscriptions(userId: string): Promise<UserSubscription[]> {
-    const result = await this.db.query(`
-      SELECT 
-        s.*,
-        a.config as agent_config,
-        a.name as agent_name
-      FROM user_subscriptions s
-      JOIN agents a ON s.agent_id = a.id
-      WHERE s.user_id = $1 AND s.is_active = true
-      ORDER BY s.subscribed_at DESC
-    `, [userId]);
 
-    return result.rows.map(row => ({
-      agentId: row.agent_id,
-      userId: row.user_id,
-      txHash: row.tx_hash,
-      subscribedAt: row.subscribed_at,
-      isActive: row.is_active,
-      contractVerified: row.contract_verified,
-      agentConfig: JSON.parse(row.agent_config),
-      userConfig: JSON.parse(row.user_config)
-    }));
-  }
 
   async prepareSubscription(
     agentId: string,
@@ -371,6 +429,36 @@ export class AgentService {
     `, [userId, agentId, txHash]);
   }
 
+  // ============================================================================
+  // Graph Data
+  // ============================================================================ 
+  async getAgentGraphData(agentId: string): Promise<MetricData[]> {
+    const result = await this.db.query(`
+      SELECT 
+      ap.total_return,
+      ap.win_rate * 100 as win_rate_pct,
+      ap.sharpe_ratio,
+      ap.max_drawdown * 100 as max_drawdown_pct,
+      ap.calculated_at as timestamp
+    FROM agent_performance ap
+    WHERE ap.agent_id = $1
+    ORDER BY ap.calculated_at DESC
+    LIMIT 30
+  `, [agentId]);
+
+    const metrics: MetricData[] = [];
+    result.rows.forEach(row => {
+      metrics.push(
+        { metric_name: 'total_return_pct', metric_value: parseFloat(row.total_return) || 0, timestamp: row.timestamp },
+        { metric_name: 'win_rate_pct', metric_value: parseFloat(row.win_rate_pct) || 0, timestamp: row.timestamp },
+        { metric_name: 'sharpe_ratio', metric_value: parseFloat(row.sharpe_ratio) || 0, timestamp: row.timestamp },
+        { metric_name: 'max_drawdown_pct', metric_value: parseFloat(row.max_drawdown_pct) || 0, timestamp: row.timestamp }
+      );
+    });
+
+    return metrics;
+  }
+
   async getUserPerformanceData(userId: string): Promise<MetricData[]> {
     const result = await this.db.query(`
       SELECT 
@@ -383,24 +471,6 @@ export class AgentService {
       GROUP BY ap.calculated_at
       ORDER BY ap.calculated_at ASC
     `, [userId]);
-
-    return result.rows;
-  }
-
-  async getUserLatestTrades(userId: string, limit: number = 10): Promise<any[]> {
-    const result = await this.db.query(`
-      SELECT 
-        ad.token_symbol,
-        ad.action,
-        ad.amount,
-        ad.created_at as timestamp,
-        a.name as agent_name
-      FROM agent_decisions ad
-      JOIN agents a ON ad.agent_id = a.id
-      WHERE ad.user_id = $1 AND ad.executed = true
-      ORDER BY ad.created_at DESC
-      LIMIT $2
-    `, [userId, limit]);
 
     return result.rows;
   }
@@ -436,6 +506,47 @@ export class AgentService {
     }
   }
 
+  async getUserLatestTrades(userId: string, limit: number = 10): Promise<any[]> {
+    const result = await this.db.query(`
+      SELECT 
+        ad.token_symbol,
+        ad.action,
+        ad.amount,
+        ad.created_at as timestamp,
+        a.name as agent_name
+      FROM agent_decisions ad
+      JOIN agents a ON ad.agent_id = a.id
+      WHERE ad.user_id = $1 AND ad.executed = true
+      ORDER BY ad.created_at DESC
+      LIMIT $2
+    `, [userId, limit]);
+
+    return result.rows;
+  }
+
+  async getUserSubscriptions(userId: string): Promise<UserSubscription[]> {
+    const result = await this.db.query(`
+      SELECT 
+        s.*,
+        a.config as agent_config,
+        a.name as agent_name
+      FROM user_subscriptions s
+      JOIN agents a ON s.agent_id = a.id
+      WHERE s.user_id = $1 AND s.is_active = true
+      ORDER BY s.subscribed_at DESC
+    `, [userId]);
+
+    return result.rows.map(row => ({
+      agentId: row.agent_id,
+      userId: row.user_id,
+      txHash: row.tx_hash,
+      subscribedAt: row.subscribed_at,
+      isActive: row.is_active,
+      contractVerified: row.contract_verified,
+      agentConfig: JSON.parse(row.agent_config),
+      userConfig: JSON.parse(row.user_config)
+    }));
+  }
 
   // ============================================================================
   // AGENT EXECUTION (Existing functionality)

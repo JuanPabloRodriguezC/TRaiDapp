@@ -56,8 +56,8 @@ export class AgentService {
       .pipe(catchError(this.handleError));
   }
 
-  depositForTrading(tokenAddress: string, amount: string): Observable<string> {
-    const contractAddress = '0x06dba12b81f6abb06b184dc42df57ebda6572eacf2a142bf0d1426c27bc92adf'; // Example contract address
+  depositForTrading(tokenAddress: string, amount: string): Observable<{success: boolean, txHash: string}> {
+    const contractAddress = '0x04e136f7795e3262bac277a43a766b02979125dac2c5ebb0066f01648421e3d8'; // Example contract address
     const userId = this.walletService.getConnectedAddress();
     
     if (!userId) {
@@ -117,36 +117,55 @@ export class AgentService {
     );
   }
 
-  private executeDepositTransaction(tokenAddress: string, amount: string): Observable<string> {
+  private executeDepositTransaction(tokenAddress: string, amount: string): Observable<{success: boolean, txHash: string}> {
     console.log('🔄 Executing deposit transaction...');
     
-    // Prepare the request payload
-    const payload = {
-      tokenAddress,
-      amount
-    };
+    const payload = { tokenAddress, amount };
 
     return this.http.post<PrepData>(`${this.apiUrl}/agents/deposit`, payload).pipe(
       switchMap(prepData => {
-        return from(this.executeWalletTransaction(prepData));
+        return from(this.executeWalletTransaction(prepData)).pipe(
+          switchMap(txHash => {
+            const userId = this.walletService.getConnectedAddress();
+            return this.http.post<{success: boolean}>(`${this.apiUrl}/agents/confirm-deposit`, {
+              userId,
+              tokenAddress,
+              amount,
+              txHash
+            }).pipe(
+              switchMap(response => {
+                return new Observable<{success: boolean, txHash: string}>(observer => {
+                  observer.next({ success: response.success, txHash });
+                  observer.complete();
+                });
+              })
+            );
+          })
+        );
       }),
       catchError(error => {
-        
         if (error.status === 400) {
-          console.error('Bad Request Details:', {
-            status: error.status,
-            statusText: error.statusText,
-            error: error.error,
-            url: error.url
-          });
-          
-          const errorDetails = error.error?.message || error.error?.detail || 'Invalid request parameters';
+          console.error('Bad Request Details:', error);
+          const errorDetails = error.error?.message || 'Invalid request parameters';
           throw new Error(`Bad Request: ${errorDetails}`);
         }
-        
         throw error;
       })
     );
+  }
+
+  verifyDeposit(tokenAddress: string, txHash: string): Observable<{verified: boolean}> {
+    const userId = this.walletService.getConnectedAddress();
+    
+    if (!userId) {
+      return throwError(() => new Error('Wallet not connected'));
+    }
+
+    return this.http.post<{verified: boolean}>(`${this.apiUrl}/agents/verify-deposit`, {
+      userId,
+      tokenAddress,
+      txHash
+    }).pipe(catchError(this.handleError));
   }
 
   withdrawFromTrading(tokenAddress: string, amount: number): Observable<string> {

@@ -106,6 +106,20 @@ export class ContractService {
     return result
   }
 
+  async getUserTokenBalance(user: string, tokenAddress: string): Promise<string> {
+    try {
+      const callData = this.callData.compile('get_user_token_balance', {
+        user: user,
+        token_address: tokenAddress
+      });
+      
+      const result = await this.contract.call('get_user_token_balance', callData);
+      return result.toString();
+    } catch (error) {
+      throw new Error(`Failed to get balance from contract: ${error}`);
+    }
+  }
+
   async canAgentTrade(user: string, agentId: string, amount: bigint): Promise<boolean> {
     const callData = CallData.compile([user, agentId, amount]);
     const result = await this.contract.call('can_agent_trade', callData) as any[];
