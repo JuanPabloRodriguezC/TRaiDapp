@@ -1,4 +1,4 @@
-<p-fluid class="flex flex-col gap-8">
+<p-fluid class="flex flex-col gap-8" *ngIf="isWalletConnected; else walletNotConnected">
     <div class="flex mt-8">
         <div class="card flex-1">
             <div class="font-semibold text-xl mb-4">Your Porfolio Performance</div>
@@ -79,3 +79,26 @@
 
     
 </p-fluid>
+
+<ng-template #walletNotConnected>
+  <!-- Wallet connection view adapted from your 404 template -->
+  <div class="flex items-center justify-center min-h-screen overflow-hidden">
+    <div class="flex flex-col items-center justify-center">
+      <!-- Logo/Icon section -->
+      <div class="w-full bg-surface-0 dark:bg-surface-900 py-20 px-8 sm:px-20 flex flex-col items-center" style="border-radius: 53px">
+        <i class="pi pi-wallet text-primary !text-6xl mb-4"></i>
+        <h1 class="text-surface-900 dark:text-surface-0 font-bold text-3xl lg:text-5xl mb-2">Wallet Not Connected</h1>
+        <div class="text-surface-600 dark:text-surface-200 mb-8">Connect your Starknet wallet to view your trading dashboard.</div>
+        
+        <p-button 
+          label="Connect Wallet" 
+          (onClick)="connectWallet()"
+          [loading]="loading"
+          class="mb-8" />
+        
+        <!-- Error display -->
+        <div *ngIf="error" class="text-red-500 mb-4">{{ error }}</div>
+      </div>
+    </div>
+  </div>
+</ng-template>

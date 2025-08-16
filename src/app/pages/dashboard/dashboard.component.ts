@@ -1,5 +1,5 @@
 // dashboard.component.ts
-import { Component, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, PLATFORM_ID, ChangeDetectorRef, OnInit, OnDestroy, effect } from '@angular/core';
 import { Router } from '@angular/router';
 import { map, takeUntil } from 'rxjs/operators';
 import { Subject, forkJoin } from 'rxjs';
@@ -8,7 +8,7 @@ import { ButtonModule } from 'primeng/button';
 import { ChartModule } from 'primeng/chart';
 import { TableModule } from 'primeng/table';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { AssetAllocationData, TransactionData } from '../../interfaces/graph';
 import { Agent } from '../../interfaces/agent';
 import { WalletService } from '../../services/wallet.service'
@@ -41,6 +41,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   
   displayedColumns: string[] = ['timestamp', 'target token', 'amount'];
   botsDisplayedColumns: string[] = ['name', 'status', 'performance', 'lastTrade'];
+  platformId = inject(PLATFORM_ID);
   
   performanceChart: Chart = { 
     key: 'performance', 
@@ -74,7 +75,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(
     private router: Router,
     private walletService: WalletService,
-    private agentService: AgentService
+    private agentService: AgentService,
+    private cd: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -120,18 +122,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.userSubscriptions = await this.agentService.getUserSubscriptions().toPromise() || [];
       // Then load other data
       const requests = {
-        transactions: this.agentService.getUserLatestTrades(),
-        performance: this.agentService.getUserPerformanceData(),
-        agents: this.agentService.getUserSubscriptionsDetailed()
+        //transactions: this.agentService.getUserLatestTrades(),
+        //performance: this.agentService.getUserPerformanceData(),
+        //agents: this.agentService.getUserSubscriptionsDetailed(),
+        balances: this.agentService.getUserBalances(),
       };
 
       forkJoin(requests).subscribe({
-        next: ({ transactions, performance, agents }) => {
-          this.processPerformanceData(performance);
-          this.trades = transactions;
-          this.agents = agents;
+        next: ({ balances }) => {
+          //this.processPerformanceData(performance);
+          //this.trades = transactions;
+          //this.agents = agents;
+          console.log('Balances:', balances);
+          this.processAllocationData(balances);
           this.initCharts();
+          
           this.loading = false;
+          
         },
         error: (err) => {
           console.error('Error fetching dashboard data:', err);
@@ -147,8 +154,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private processAllocationData(alloc: AssetAllocationData[]): void {
-    const alloc_labels = alloc.map(d => d.token_id);
-    const alloc_data = alloc.map(d => d.amount);
+    const alloc_labels = alloc.map(d => d.symbol);
+    const alloc_data = alloc.map(d => d.balance);
     const alloc_datasets: any[] = [
       {
         data: alloc_data,
@@ -199,7 +206,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const textColor = documentStyle.getPropertyValue('--text-color') || '#64748b';
     const textColorSecondary = documentStyle.getPropertyValue('--text-color-secondary') || '#94a3b8';
     const surfaceBorder = documentStyle.getPropertyValue('--surface-border') || '#e2e8f0';
-
+    // Init Performance Chart
     this.performanceChart.chartOptions = {
       maintainAspectRatio: false,
       aspectRatio: 0.6,
@@ -253,16 +260,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
       }
     };
 
-    this.allocationChart.chartOptions = {
-      cutout: '60%',
-      plugins: {
-        legend: {
-          labels: {
-            color: textColor
+    // Init Allocation Chart
+    if (isPlatformBrowser(this.platformId)) {
+      this.allocationChart.chartOptions = {
+          cutout: '60%',
+          plugins: {
+              legend: {
+                  labels: {
+                      color: textColor
+                  }
+              }
           }
-        }
-      }  
-    };
+      };
+      this.cd.markForCheck()
+    }
   }
 
   async connectWallet(): Promise<void> {

@@ -498,7 +498,9 @@ export class AgentService {
       
       return result.rows.map(row => ({
         tokenAddress: row.token_address,
-        balance: row.balance.toString(),
+        symbol: row.symbol,
+        balance: (row.balance / 10 ** row.decimals).toString(),
+        name: row.name,
         usdValue: row.usd_value ? row.usd_value.toString() : 0,
       }));
     } catch (error) {

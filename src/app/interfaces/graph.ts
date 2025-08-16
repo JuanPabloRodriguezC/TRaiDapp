@@ -12,8 +12,11 @@ export interface TimeData {
 }
 
 export interface AssetAllocationData {
-  token_id: string,
-  amount: number,
+  tokenAddress: string,
+  symbol: string,
+  balance: number,
+  name: string,
+  usdValue: number,
 }
 
 
