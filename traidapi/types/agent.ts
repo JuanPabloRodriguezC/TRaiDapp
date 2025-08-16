@@ -21,12 +21,11 @@ export interface AgentConfig {
 
 export interface UserSubscription {
   agentId: string;
-  userId: string;
+  agentName: string;
   txHash: string;
   subscribedAt: Date;
   isActive: boolean;
-  contractVerified: boolean;
-  agentConfig: AgentConfig;
+  userConfig: UserConfig;
 }
 
 export interface UserConfig {

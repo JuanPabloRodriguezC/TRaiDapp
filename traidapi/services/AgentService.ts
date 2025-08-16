@@ -530,23 +530,20 @@ export class AgentService {
     const result = await this.db.query(`
       SELECT 
         s.*,
-        a.config as agent_config,
         a.name as agent_name
       FROM user_subscriptions s
       JOIN agents a ON s.agent_id = a.id
-      WHERE s.user_id = $1 AND s.is_active = true
+      WHERE s.user_id = $1
       ORDER BY s.subscribed_at DESC
     `, [userId]);
 
     return result.rows.map(row => ({
       agentId: row.agent_id,
-      userId: row.user_id,
+      agentName: row.agent_name,
       txHash: row.tx_hash,
-      subscribedAt: row.subscribed_at,
+      subscribedAt: row.subscribed_at.toISOString(),
       isActive: row.is_active,
-      contractVerified: row.contract_verified,
-      agentConfig: JSON.parse(row.agent_config),
-      userConfig: JSON.parse(row.user_config)
+      userConfig: row.user_config
     }));
   }
 

@@ -14,3 +14,12 @@ export interface ContractUserConfig {
   stopLossThreshold: number; // 0-100 (will be converted to 0-10000 for contract)
 }
 
+export interface Subscription{
+  agentId: number;
+  agentName: string;
+  isActive: string;
+  txHash: string;
+  subscribedAt: string;
+  userConfig: ContractUserConfig;
+}
+

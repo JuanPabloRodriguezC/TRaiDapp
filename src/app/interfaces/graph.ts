@@ -1,10 +1,3 @@
-
-
-export interface Subscription {
-  id: number;
-  name: string;
-}
-
 export interface TimeData {
   timestamp: string,
   predicted_price: number,
@@ -18,7 +11,6 @@ export interface AssetAllocationData {
   name: string,
   usdValue: number,
 }
-
 
 export interface TransactionData {
   token_id: string,

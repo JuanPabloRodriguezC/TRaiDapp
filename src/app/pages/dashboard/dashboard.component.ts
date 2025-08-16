@@ -1,18 +1,22 @@
 // dashboard.component.ts
-import { Component, inject, PLATFORM_ID, ChangeDetectorRef, OnInit, OnDestroy, effect } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, inject, PLATFORM_ID, ChangeDetectorRef, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Router, RouterModule } from '@angular/router';
 import { map, takeUntil } from 'rxjs/operators';
 import { Subject, forkJoin } from 'rxjs';
 import { FluidModule } from 'primeng/fluid';
 import { ButtonModule } from 'primeng/button';
 import { ChartModule } from 'primeng/chart';
 import { TableModule } from 'primeng/table';
+import { BadgeModule } from 'primeng/badge';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { OverlayPanelModule } from 'primeng/overlaypanel';
+import { TooltipModule } from 'primeng/tooltip';
+import { OverlayPanel } from 'primeng/overlaypanel';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { AssetAllocationData, TransactionData } from '../../interfaces/graph';
-import { Agent } from '../../interfaces/agent';
 import { WalletService } from '../../services/wallet.service'
 import { AgentService } from '../../services/agent.service';
+import { Subscription } from '../../interfaces/user';
 
 interface Chart {
   key: string;
@@ -33,10 +37,16 @@ interface Chart {
     ChartModule,
     TableModule,
     ProgressSpinnerModule,
-    CommonModule
+    CommonModule,
+    BadgeModule,
+    RouterModule,
+    OverlayPanelModule,
+    TooltipModule
   ]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  @ViewChild('configPanel') configPanel!: OverlayPanel;
+  
   private destroy$ = new Subject<void>();
   
   displayedColumns: string[] = ['timestamp', 'target token', 'amount'];
@@ -60,8 +70,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   };
   
   trades: TransactionData[] = [];
-  agents: Agent[] = [];
-  userSubscriptions: any[] = [];
+  userSubscriptions: Subscription[] = [];
+  selectedSubscription: Subscription | null = null;
   
   backgroundColors: string[] = ['#003f5c','#2f4b7c', '#665191', '#a05195', '#d45087', '#f95d6a', '#ff7c43', '#ffa600'];
   backgroundHoverColors: string[] = ['#003f5c','#2f4b7c', '#665191', '#a05195', '#d45087', '#f95d6a', '#ff7c43', '#ffa600'];
@@ -71,6 +81,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   walletAddress = '';
   loading = false;
   error: string | null = null;
+
+  // Voyager base URL for Starknet mainnet
+  private readonly VOYAGER_BASE_URL = 'https://voyager.online/tx/';
 
   constructor(
     private router: Router,
@@ -119,41 +132,46 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     try {
       // Load user subscriptions first
-      this.userSubscriptions = await this.agentService.getUserSubscriptions().toPromise() || [];
-      // Then load other data
       const requests = {
-        //transactions: this.agentService.getUserLatestTrades(),
-        //performance: this.agentService.getUserPerformanceData(),
-        //agents: this.agentService.getUserSubscriptionsDetailed(),
+        transactions: this.agentService.getUserLatestTrades(),
+        performance: this.agentService.getUserPerformanceData(),
+        subscriptions: this.agentService.getUserSubscriptions(),
         balances: this.agentService.getUserBalances(),
       };
 
       forkJoin(requests).subscribe({
-        next: ({ balances }) => {
-          //this.processPerformanceData(performance);
-          //this.trades = transactions;
-          //this.agents = agents;
-          console.log('Balances:', balances);
+        next: ({ transactions, performance, subscriptions, balances }) => {
+          this.processPerformanceData(performance);
+          this.trades = transactions;
+          this.userSubscriptions = subscriptions;
+          console.log('User Subscriptions:', this.userSubscriptions);
           this.processAllocationData(balances);
           this.initCharts();
           
           this.loading = false;
-          
+          this.cd.markForCheck();
         },
         error: (err) => {
           console.error('Error fetching dashboard data:', err);
           this.error = 'Failed to load dashboard data';
           this.loading = false;
+          this.cd.markForCheck();
         }
       });
     } catch (error: any) {
       console.error('Error loading user subscriptions:', error);
       this.error = 'Failed to load user data';
       this.loading = false;
+      this.cd.markForCheck();
     }
   }
 
   private processAllocationData(alloc: AssetAllocationData[]): void {
+    if (!alloc || alloc.length === 0) {
+      this.allocationChart.chartData = {};
+      return;
+    }
+
     const alloc_labels = alloc.map(d => d.symbol);
     const alloc_data = alloc.map(d => d.balance);
     const alloc_datasets: any[] = [
@@ -171,6 +189,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private processPerformanceData(performance: any[]): void {
+    if (!performance || performance.length === 0) {
+      this.performanceChart.chartData = {};
+      return;
+    }
+
     const performance_labels = performance.map(d => d.timestamp);
     const performance_data = performance.map(d => d.metric_value);
     const performance_datasets: any[] = [
@@ -195,10 +218,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private clearDashboardData(): void {
     this.trades = [];
-    this.agents = [];
     this.userSubscriptions = [];
     this.performanceChart.chartData = {};
     this.allocationChart.chartData = {};
+    this.selectedSubscription = null;
   }
 
   initCharts() {
@@ -206,6 +229,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const textColor = documentStyle.getPropertyValue('--text-color') || '#64748b';
     const textColorSecondary = documentStyle.getPropertyValue('--text-color-secondary') || '#94a3b8';
     const surfaceBorder = documentStyle.getPropertyValue('--surface-border') || '#e2e8f0';
+    
     // Init Performance Chart
     this.performanceChart.chartOptions = {
       maintainAspectRatio: false,
@@ -224,29 +248,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       },
       scales: {
-        xAxes: {
+        x: {
           ticks: {
             color: textColorSecondary,
             maxTicksLimit: 6
           },
           scaleLabel: {
             display: true,
-            labelString: 'Value (USD)'
+            labelString: 'Date'
           },
           grid: {
             display: false
           }
         },
-        yAxes: {
+        y: {
           ticks: {
             color: textColorSecondary,
             callback: function(value: any) {
-              Math.round(value);
+              return Math.round(value);
             }
           },
           scaleLabel: {
             display: true,
-            labelString: 'Date'
+            labelString: 'Value (USD)'
           },
           grid: {
             color: surfaceBorder,
@@ -308,14 +332,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString();
+  showConfigOverlay(event: Event, subscription: Subscription): void {
+    this.selectedSubscription = subscription;
+    this.configPanel.toggle(event);
   }
 
-  getSubscriptionStatus(agentId: number): string {
-    const subscription = this.userSubscriptions.find(sub => sub.agentId === agentId.toString());
-    if (!subscription) return 'Not Subscribed';
-    if (!subscription.contractVerified) return 'Pending Verification';
-    return subscription.isActive ? 'Active' : 'Inactive';
+  getVoyagerUrl(txHash: string): string {
+    return `${this.VOYAGER_BASE_URL}${txHash}`;
+  }
+
+  truncateHash(hash: string): string {
+    if (!hash) return '';
+    return `${hash.substring(0, 6)}...${hash.substring(hash.length - 4)}`;
+  }
+
+  formatDate(dateString: string): string {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short', 
+      day: 'numeric'
+    });
   }
 }

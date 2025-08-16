@@ -1,83 +1,220 @@
 <p-fluid class="flex flex-col gap-8" *ngIf="isWalletConnected; else walletNotConnected">
     <div class="flex mt-8">
         <div class="card flex-1">
-            <div class="font-semibold text-xl mb-4">Your Porfolio Performance</div>
+            <div class="font-semibold text-xl mb-4">Your Portfolio Performance</div>
             <!-- Chart Content -->
             <div class="mb-6" style="height: 300px;">
-                <p-chart 
-                    type="line" 
-                    [data]="performanceChart.chartData"
-                    [options]="performanceChart.chartOptions"
-                    width="100%"
-                    height="300px">
-                </p-chart>
+                <div *ngIf="performanceChart.chartData?.datasets?.length > 0; else noPerformanceData">
+                    <p-chart 
+                        type="line" 
+                        [data]="performanceChart.chartData"
+                        [options]="performanceChart.chartOptions"
+                        width="100%"
+                        height="300px">
+                    </p-chart>
+                </div>
+                <ng-template #noPerformanceData>
+                    <div class="flex flex-col items-center justify-center h-full text-surface-500">
+                        <i class="pi pi-chart-line text-6xl mb-4 opacity-50"></i>
+                        <span class="text-lg">No performance data available</span>
+                        <span class="text-sm mt-2">Start trading with agents to see your portfolio performance</span>
+                    </div>
+                </ng-template>
             </div>
-            
         </div>
     </div>
+    
     <div class="flex flex-col md:flex-row gap-8">
         <div class="md:w-1/2">
             <div class="card flex-1">
                 <div class="font-semibold text-xl mb-4">Your Asset Allocations</div>
                 <!-- Chart Content -->
                 <div class="mb-6" style="height: 300px;">
-                    <p-chart 
-                        type="doughnut" 
-                        [data]="allocationChart.chartData"
-                        [options]="allocationChart.chartOptions"
-                        width="100%"
-                        height="300px">
-                    </p-chart>
+                    <div *ngIf="allocationChart.chartData?.datasets?.length > 0; else noAllocationData">
+                        <p-chart 
+                            type="doughnut" 
+                            [data]="allocationChart.chartData"
+                            [options]="allocationChart.chartOptions"
+                            width="100%"
+                            height="300px">
+                        </p-chart>
+                    </div>
+                    <ng-template #noAllocationData>
+                        <div class="flex flex-col items-center justify-center h-full text-surface-500">
+                            <i class="pi pi-chart-pie text-6xl mb-4 opacity-50"></i>
+                            <span class="text-lg">No allocation data available</span>
+                            <span class="text-sm mt-2">Connect your wallet and start trading to see asset allocations</span>
+                        </div>
+                    </ng-template>
                 </div>
             </div>
         </div>
+        
         <div class="md:w-1/2">
             <div class="card flex flex-col gap-4">
                 <div class="font-semibold text-xl mb-4">Your Latest Trades</div>
-
-                <p-table [value]="trades" [scrollable]="true" scrollHeight="400px" styleClass="mt-4">
-                    <ng-template #header>
-                        <tr>
-                            <th style="min-width:200px" pFrozenColumn class="font-bold">Timestamp</th>
-                            <th style="min-width:200px">Token ID</th>
-                            <th style="min-width:200px">Amount</th>
-                        </tr>
-                    </ng-template>
-                    <ng-template #body let-trade>
-                        <tr>
-                            <td pFrozenColumn class="font-bold">{{ trade.timestamp }}</td>
-                            <td style="min-width:100px">{{ trade.token_id }}</td>
-                            <td>{{ trade.amount }}</td>
-                        </tr>
-                    </ng-template>
-                </p-table>
+                <div *ngIf="trades.length > 0; else noTradesData">
+                    <p-table [value]="trades" [scrollable]="true" scrollHeight="400px" styleClass="mt-4">
+                        <ng-template #header>
+                            <tr>
+                                <th style="min-width:200px" pFrozenColumn class="font-bold" pSortableColumn="timestamp">
+                                    Timestamp <p-sortIcon field="timestamp"></p-sortIcon>
+                                </th>
+                                <th style="min-width:150px" pSortableColumn="token_id">
+                                    Token ID <p-sortIcon field="token_id"></p-sortIcon>
+                                </th>
+                                <th style="min-width:150px" pSortableColumn="amount">
+                                    Amount <p-sortIcon field="amount"></p-sortIcon>
+                                </th>
+                            </tr>
+                        </ng-template>
+                        <ng-template #body let-trade>
+                            <tr>
+                                <td pFrozenColumn class="font-bold">{{ formatDate(trade.timestamp) }}</td>
+                                <td style="min-width:100px">{{ trade.token_id }}</td>
+                                <td>{{ trade.amount }}</td>
+                            </tr>
+                        </ng-template>
+                    </p-table>
+                </div>
+                <ng-template #noTradesData>
+                    <div class="flex flex-col items-center justify-center h-48 text-surface-500">
+                        <i class="pi pi-history text-4xl mb-2 opacity-50"></i>
+                        <span>No recent trades</span>
+                        <span class="text-sm mt-1">Your trading history will appear here</span>
+                    </div>
+                </ng-template>
             </div>
         </div>
     </div>
+    
     <div class="flex mt-8">
         <div class="card flex-1">
             <div class="font-semibold text-xl mb-4">Your Agents</div>
-            <p-table [value]="agents" [scrollable]="true" scrollHeight="400px" styleClass="mt-4">
-                <ng-template #header>
-                    <tr>
-                        <th style="min-width:200px" pFrozenColumn class="font-bold">ID</th>
-                        <th style="min-width:200px">Name</th>
-                        <th style="min-width:200px">Created At</th>
-                    </tr>
-                </ng-template>
-                <ng-template #body let-agent>
-                    <tr>
-                        <td pFrozenColumn class="font-bold">{{ agent.id }}</td>
-                        <td style="min-width:100px">{{ agent.name }}</td>
-                        <td>{{ agent.created_at }}</td>
-                    </tr>
-                </ng-template>
-            </p-table>
-            
+            <div *ngIf="userSubscriptions.length > 0; else noAgentsData">
+                <div class="overflow-hidden" style="width: 100%; max-width: 1200px;">
+                    <p-table 
+                        [value]="userSubscriptions" 
+                        [scrollable]="true" 
+                        scrollHeight="500px" 
+                        styleClass="mt-4"
+                        [style]="{'width': '100%'}">
+                        <ng-template #header>
+                            <tr>
+                                <th style="min-width:120px" pFrozenColumn class="font-bold" pSortableColumn="agentId">
+                                    Agent ID <p-sortIcon field="agentId"></p-sortIcon>
+                                </th>
+                                <th style="min-width:180px" class="font-bold" pSortableColumn="agentName">
+                                    Agent Name <p-sortIcon field="agentName"></p-sortIcon>
+                                </th>
+                                <th style="min-width:150px" pSortableColumn="created_at">
+                                    Subscribed At <p-sortIcon field="created_at"></p-sortIcon>
+                                </th>
+                                <th style="min-width:140px">
+                                    User Config
+                                </th>
+                                <th style="min-width:120px" pSortableColumn="isActive">
+                                    Status <p-sortIcon field="isActive"></p-sortIcon>
+                                </th>
+                                <th style="min-width:200px">
+                                    Transaction Hash
+                                </th>
+                            </tr>
+                        </ng-template>
+                        <ng-template #body let-sub>
+                            <tr>
+                                <td pFrozenColumn class="font-bold">
+                                    <a [routerLink]="['/main/explore-agent', sub.agentId]" 
+                                       class="text-primary hover:text-primary-600 hover:underline cursor-pointer transition-colors">
+                                        {{ sub.agentId }}
+                                    </a>
+                                </td>
+                                <td class="font-medium">{{ sub.agentName }}</td>
+                                <td>{{ formatDate(sub.subscribedAt) }}</td>
+                                <td class="text-center">
+                                    <p-button 
+                                        icon="pi pi-cog" 
+                                        severity="secondary" 
+                                        [outlined]="true"
+                                        size="small"
+                                        (onClick)="showConfigOverlay($event, sub)"
+                                        pTooltip="View configuration"
+                                        tooltipPosition="top">
+                                    </p-button>
+                                </td>
+                                <td>
+                                    <p-badge 
+                                        [value]="sub.isActive ? 'Active' : 'Inactive'" 
+                                        [severity]="sub.isActive ? 'success' : 'danger'">
+                                    </p-badge>
+                                </td>
+                                <td style="min-width:100px">
+                                    <a [href]="getVoyagerUrl(sub.txHash)" 
+                                       target="_blank" 
+                                       rel="noopener noreferrer"
+                                       class="text-primary hover:text-primary-600 hover:underline cursor-pointer transition-colors inline-flex items-center gap-1">
+                                        {{ truncateHash(sub.txHash) }}
+                                        <i class="pi pi-external-link text-xs"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        </ng-template>
+                    </p-table>
+                </div>
+            </div>
+            <ng-template #noAgentsData>
+                <div class="flex flex-col items-center justify-center h-48 text-surface-500">
+                    <i class="pi pi-users text-4xl mb-2 opacity-50"></i>
+                    <span>No active agent subscriptions</span>
+                    <span class="text-sm mt-1">Subscribe to trading agents to see them here</span>
+                    <p-button 
+                        label="Browse Agents" 
+                        (onClick)="navigateToAgentMarketplace()"
+                        severity="secondary"
+                        [outlined]="true"
+                        class="mt-4">
+                    </p-button>
+                </div>
+            </ng-template>
         </div>
     </div>
 
-    
+    <!-- Config Overlay Panel -->
+    <p-overlayPanel #configPanel [showCloseIcon]="true" [style]="{'width': '400px'}">
+        <ng-template pTemplate="content">
+            <div class="p-4">
+                <h4 class="text-lg font-semibold mb-4 text-surface-900">Agent Configuration</h4>
+                <div class="flex flex-col gap-3" *ngIf="selectedSubscription">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-surface-600">Automation Level:</label>
+                            <p class="text-surface-900 font-medium">{{ selectedSubscription.userConfig.automationLevel || 'Not set' }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-surface-600">Max Trades/Day:</label>
+                            <p class="text-surface-900 font-medium">{{ selectedSubscription.userConfig.maxTradesPerDay || 'Not set' }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-surface-600">Max API Cost/Day:</label>
+                            <p class="text-surface-900 font-medium">${{ selectedSubscription.userConfig.maxApiCostPerDay || 'Not set' }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-surface-600">Risk Tolerance:</label>
+                            <p class="text-surface-900 font-medium">{{ selectedSubscription.userConfig.riskTolerance || 'Not set' }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-surface-600">Max Position Size:</label>
+                            <p class="text-surface-900 font-medium">{{ selectedSubscription.userConfig.maxPositionSize || 'Not set' }}</p>
+                        </div>
+                    </div>
+                    <div class="border-t pt-3 mt-2" *ngIf="selectedSubscription.userConfig?.stopLossThreshold">
+                        <label class="text-sm font-medium text-surface-600">Stop Loss Threshold:</label>
+                        <p class="text-surface-900 font-medium">{{ selectedSubscription.userConfig.stopLossThreshold }}%</p>
+                    </div>
+                </div>
+            </div>
+        </ng-template>
+    </p-overlayPanel>
 </p-fluid>
 
 <ng-template #walletNotConnected>
