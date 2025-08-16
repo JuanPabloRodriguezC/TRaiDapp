@@ -17,7 +17,7 @@ export class BrowseComponent {
   agentCards: AgentResponse[] =  [];
   totalAgents = 0;
   currentPage = 1;
-  pageSize = 6;
+  pageSize = 20;
   totalPages = 1;
   loading = false;
   error: string | null = null;
@@ -48,7 +48,7 @@ export class BrowseComponent {
         this.totalPages = Math.ceil(this.totalAgents / this.pageSize);
         this.loading = false;
       },error: (error) => {
-        console.error('Error loading bots with subscriptions:', error);
+        console.error('Error loading agents:', error);
       }
     });
   }

@@ -303,7 +303,7 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
       const txHash = await lastValueFrom(result).then(res => {
         this.displayDepositDialog = false;
         this.showMessage('success', 'Deposit Successful', 
-          `${amount} ${this.selectedToken?.symbol} deposited successfully. Transaction: ${this.formatTxHash(res)}`);
+          `${amount} ${this.selectedToken?.symbol} deposited successfully. Transaction: ${this.formatTxHash(res.txHash)}`);
       });
 
     } catch (error: any) {
