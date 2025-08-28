@@ -16,8 +16,7 @@ export interface ContractUserConfig {
 
 export interface Subscription{
   agentId: number;
-  agentName: string;
-  isActive: string;
+  isActive: boolean;
   txHash: string;
   subscribedAt: string;
   userConfig: ContractUserConfig;

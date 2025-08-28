@@ -357,6 +357,91 @@ router.get('/user/:userId/subscriptions', async (req: any, res) => {
   }
 });
 
+/**
+ * GET /api/agents/:agentId/subscription
+ * Get user's subscription to a specific agent
+ */
+router.get('/:agentId/subscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userAddress } = req.query;
+
+    if (!userAddress) {
+      return res.status(400).json({ error: 'User address is required' });
+    }
+
+    const subscription = await agentService.getUserSubscription(agentId, userAddress);
+    
+    if (!subscription) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+
+    return res.json(subscription);
+  } catch (error: any) {
+    console.error('Error fetching subscription:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PUT /api/agents/:agentId/subscription
+ * Update existing subscription
+ */
+router.put('/agents/:agentId/subscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userConfig, userAddress } = req.body;
+    
+    if (!userAddress) {
+      return res.status(401).json({ error: 'User address is required' });
+    }
+
+    const result = await agentService.updateUserSubscription(agentId, userAddress, userConfig);
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Error updating subscription:', error);
+    
+    // Handle specific error types
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error.message.includes('limit') || error.message.includes('exceed')) {
+      return res.status(400).json({ error: error.message });
+    }
+    
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/agents/:agentId/subscription
+ * Unsubscribe from agent
+ */
+router.delete('/agents/:agentId/subscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userAddress } = req.body;
+    
+    if (!userAddress) {
+      return res.status(401).json({ error: 'User address is required' });
+    }
+
+    const result = await agentService.unsubscribeUser(agentId, userAddress);
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Error unsubscribing:', error);
+    
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // Verify subscription on contract
 router.post('/:agentId/verify-subscription', async (req: any, res) => {
   try {

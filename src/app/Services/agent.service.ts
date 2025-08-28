@@ -7,6 +7,7 @@ import { WalletService } from './wallet.service';
 import { PrepData } from '../interfaces/responses';
 import { AgentResponse } from '../interfaces/responses';
 import { Agent, AgentConfig } from '../interfaces/agent';
+import { Subscription as UserSubscription }  from '../interfaces/user';
 import { MetricData } from '../interfaces/graph';
 
 // Contract-compatible UserConfig interface
@@ -283,6 +284,33 @@ export class AgentService {
     }
 
     return null;
+  }
+
+  getUserSubscription(agentId: string, userAddress: string): Observable<UserSubscription | null> {
+    return this.http.get<UserSubscription>(`${this.apiUrl}/agents/${agentId}/subscription`, {
+      params: { userAddress }
+    }).pipe(
+      catchError((error) => {
+        if (error.status === 404) {
+          return of(null); // No subscription found
+        }
+        throw error;
+      })
+    );
+  }
+
+  /**
+   * Update existing subscription
+   */
+  updateSubscription(agentId: string, userConfig: ContractUserConfig): Observable<any> {
+    return this.http.put(`${this.apiUrl}/agents/${agentId}/subscription`, {
+      userConfig
+    }).pipe(
+      catchError((error) => {
+        console.error('Update subscription failed:', error);
+        throw error;
+      })
+    );
   }
 
   unsubscribeFromAgent(agentId: string): Observable<{success: boolean, txHash: string}> {

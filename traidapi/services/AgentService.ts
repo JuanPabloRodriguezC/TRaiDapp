@@ -547,6 +547,32 @@ export class AgentService {
     }));
   }
 
+  async getUserSubscription(agentId: string, userAddress: string) {
+    try {
+      // First check database for subscription
+      const result = await this.db.query(`
+        SELECT * FROM user_subscriptions 
+        WHERE agent_id = $1 AND user_id = $2 AND is_active = true
+      `, [agentId, userAddress]);
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+      const row = result.rows[0];
+      return {
+        agentId: row.agent_id,
+        txHash: row.tx_hash,
+        subscribedAt: row.subscribed_at.toISOString(),
+        isActive: row.is_active,
+        userConfig: row.user_config
+      };
+      
+    } catch (error: Error | any) {
+      console.error('Error fetching user subscription:', error);
+      throw new Error(`Failed to fetch subscription: ${error.message}`);
+    }
+  }
+
   // ============================================================================
   // AGENT EXECUTION (Existing functionality)
   // ============================================================================ 
