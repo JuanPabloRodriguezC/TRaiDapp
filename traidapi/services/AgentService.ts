@@ -314,7 +314,8 @@ export class AgentService {
 
   async prepareSubscription(
     agentId: string,
-    userConfig: UserConfig
+    userConfig: UserConfig,
+    functionName: string
   ): Promise<PrepData> {
     // Get agent configuration to validate limits
     const agentResult = await this.db.query(
@@ -336,10 +337,10 @@ export class AgentService {
 
     // Prepare contract call data
     
-    const prepCallData = this.contractCallData.compile('subscribe_to_agent', {
+    const prepCallData = this.contractCallData.compile(functionName, {
       agent_id: agentId,
       user_config: {
-        automation_level: contractConfig.automation_level,    // Don't use toBigInt here
+        automation_level: contractConfig.automation_level,
         max_trades_per_day: contractConfig.max_trades_per_day,
         max_api_cost_per_day: contractConfig.max_api_cost_per_day,
         risk_tolerance: contractConfig.risk_tolerance,
@@ -350,7 +351,7 @@ export class AgentService {
     
     return {
       contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
-      entrypoint: 'subscribe_to_agent',
+      entrypoint: functionName,
       calldata: prepCallData,
     };
   }
@@ -374,7 +375,7 @@ export class AgentService {
       `, [userId, agentId, txHash, JSON.stringify(userConfig)]);
 
       // Start background verification process
-      this.verifySubscriptionAsync(userId, agentId);
+      //this.verifySubscriptionAsync(userId, agentId);
       
     } catch (error) {
       console.error('Subscription confirmation error:', error);
@@ -412,7 +413,9 @@ export class AgentService {
   }
 
   async unsubscribeFromAgent(agentId: string): Promise<PrepData> {
-    const callData = CallData.compile([agentId]);
+    const callData = this.contractCallData.compile('unsubscribe_from_agent', {
+      agent_id: agentId
+    });
 
     return {
       contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
