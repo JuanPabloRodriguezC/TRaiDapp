@@ -127,9 +127,6 @@
                         <small class="text-red-500" *ngIf="isFieldInvalid('riskTolerance')">
                             {{ getFieldError('riskTolerance') }}
                         </small>
-                        <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
-                            Agent limit: {{ Math.round(selectedAgent.config.maxRiskTolerance * 100) }}%
-                        </small>
                     </div>
 
                     <!-- Max Position Size -->
@@ -153,9 +150,6 @@
                         <small class="text-red-500" *ngIf="isFieldInvalid('maxPositionSize')">
                             {{ getFieldError('maxPositionSize') }}
                         </small>
-                        <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
-                            Agent limit: {{ Math.round(selectedAgent.config.maxPositionSize * 100) }}%
-                        </small>
                     </div>
 
                     <!-- Max Trades per Day -->
@@ -177,9 +171,6 @@
                         </p-inputNumber>
                         <small class="text-red-500" *ngIf="isFieldInvalid('maxTradesPerDay')">
                             {{ getFieldError('maxTradesPerDay') }}
-                        </small>
-                        <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
-                            Agent limit: {{ selectedAgent.config.maxTradesPerDay }}
                         </small>
                     </div>
 
@@ -204,9 +195,6 @@
                         <small class="text-red-500" *ngIf="isFieldInvalid('stopLossThreshold')">
                             {{ getFieldError('stopLossThreshold') }}
                         </small>
-                        <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
-                            Agent minimum: {{ Math.round(selectedAgent.config.minStopLoss * 100) }}%
-                        </small>
                     </div>
 
                     <!-- Max API Cost -->
@@ -230,9 +218,6 @@
                         </p-inputNumber>
                         <small class="text-red-500" *ngIf="isFieldInvalid('maxApiCostPerDay')">
                             {{ getFieldError('maxApiCostPerDay') }}
-                        </small>
-                        <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
-                            Agent limit: {{ selectedAgent.config.maxApiCostPerDay }} ETH
                         </small>
                     </div>
 
@@ -267,9 +252,6 @@
                         </p-dropdown>
                         <small class="text-red-500" *ngIf="isFieldInvalid('automationLevel')">
                             {{ getFieldError('automationLevel') }}
-                        </small>
-                        <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
-                            Agent supports up to: {{ selectedAgent.config.maxAutomationLevel.replace('_', ' ') }}
                         </small>
                     </div>
 

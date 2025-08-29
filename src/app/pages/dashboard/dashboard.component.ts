@@ -144,7 +144,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.processPerformanceData(performance);
           this.trades = transactions;
           this.userSubscriptions = subscriptions;
-          console.log('User Subscriptions:', this.userSubscriptions);
           this.processAllocationData(balances);
           this.initCharts();
           

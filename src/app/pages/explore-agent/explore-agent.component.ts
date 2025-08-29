@@ -170,7 +170,6 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
               this.isSubscribed = subscription.isActive;
             }
             this.currentSubscription = subscription;
-            console.log("Subscription status:", this.isSubscribed, this.currentSubscription);
             this.initializeForm();
           },
           error: () => {
@@ -366,7 +365,7 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
 
     const action = this.isSubscribed ? 'updateSubscription' : 'subscribeToAgent';
     
-    this.agentService[action](this.selectedAgent?.id, userConfig).subscribe({
+    this.agentService[action](this.selectedAgent.id, userConfig).subscribe({
       next: (result) => {
         this.subscribing = false;
         const actionText = this.isSubscribed ? 'updated' : 'subscribed to';
