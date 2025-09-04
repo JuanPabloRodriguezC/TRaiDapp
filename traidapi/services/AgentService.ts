@@ -6,7 +6,7 @@ import { MarketDataService } from './MarketDataService';
 import { Agent, AgentConfig, MarketContext, TradingDecision, AgentCreationResult, 
   PrepData, UserSubscription, UserConfig, ContractUserConfig, MetricData, 
   UserTokenBalance} from '../types/agent';
-import { CallData, json } from 'starknet';
+import { CallData, json, shortString } from 'starknet';
 import fs from 'fs';
 
 
@@ -30,7 +30,7 @@ export class AgentService {
     agentConfig: AgentConfig
   ): Promise<AgentCreationResult> {
     try {
-      const agentId: string = `${Date.now()}_${Math.random().toString(36)}`;
+      const agentId = (Date.now() * 1000 + Math.floor(Math.random() * 1000)).toString();
       this.contractService.createAgent(agentId, name, agentConfig);
 
       await this.db.query(`
@@ -336,7 +336,6 @@ export class AgentService {
     const contractConfig = this.convertToContractConfig(userConfig);
 
     // Prepare contract call data
-    
     const prepCallData = this.contractCallData.compile(functionName, {
       agent_id: agentId,
       user_config: {
@@ -427,7 +426,7 @@ export class AgentService {
   async confirmUnsubscription(userId: string, agentId: string, txHash: string): Promise<void> {
     await this.db.query(`
       UPDATE user_subscriptions 
-      SET is_active = false, unsubscribed_at = NOW(), unsubscribe_tx_hash = $3, user_config = NULL
+      SET is_active = false, unsubscribed_at = NOW(), unsubscribe_tx_hash = $3
       WHERE user_id = $1 AND agent_id = $2
     `, [userId, agentId, txHash]);
   }

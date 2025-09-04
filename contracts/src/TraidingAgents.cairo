@@ -123,7 +123,7 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
                 daily_trades: 0,
                 last_reset_day: current_time / 86400,
                 subscribed_at: current_time,
-                is_authorized: false,
+                is_authorized: true,
             };
 
             self.user_subscriptions.entry((user, agent_id)).write(subscription);
@@ -190,7 +190,7 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             let user_balance = token.balance_of(user);
             assert(user_balance >= amount, 'Insufficient token balance');
 
-            // Check allowance - this is likely the issue
+            // Check allowance
             let allowance = token.allowance(user, contract_address);
             assert(allowance >= amount, 'Insufficient allowance');
 

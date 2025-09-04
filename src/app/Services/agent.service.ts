@@ -58,7 +58,7 @@ export class AgentService {
   }
 
   depositForTrading(tokenAddress: string, amount: string): Observable<{success: boolean, txHash: string}> {
-    const contractAddress = '0x04e136f7795e3262bac277a43a766b02979125dac2c5ebb0066f01648421e3d8'; // Example contract address
+    const contractAddress = '0x06c8a750c6b4798d169a750c66139f79f7e5ab7dc84f600d2136250414f791ab';
     const userId = this.walletService.getConnectedAddress();
     
     if (!userId) {
