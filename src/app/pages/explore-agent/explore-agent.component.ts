@@ -470,6 +470,7 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
         const { performance, ...agent } = data;
         this.selectedAgent = agent as Agent;
         this.performanceData = performance;
+        
         // Check subscription status once we have the agent
         if (this.walletAddress) {
           this.checkSubscriptionStatus();
@@ -479,6 +480,7 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (result) => {
         this.allMetricsData = result;
+        console.log('Historical data loaded:', this.allMetricsData);
         this.initCharts();
         this.loading = false;
         this.filterDataByMetric('total_return_pct');

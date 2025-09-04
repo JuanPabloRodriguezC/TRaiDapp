@@ -6,7 +6,7 @@ import { AppLayoutComponent } from './layout/components/layout/layout.component'
 import { ExploreAgentComponent } from './pages/explore-agent/explore-agent.component';
 
 export const routes: Routes = [
-    { path: '', redirectTo: 'landing-page', pathMatch: 'full' },
+    { path: '', redirectTo: 'main/landing-page', pathMatch: 'full' },
     {
         path: 'main',
         component: AppLayoutComponent,
