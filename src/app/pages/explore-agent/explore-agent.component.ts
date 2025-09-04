@@ -11,9 +11,11 @@ import { InputTextModule } from 'primeng/inputtext';
 import { DropdownModule } from 'primeng/dropdown';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
+import { TooltipModule } from 'primeng/tooltip';
+import { TagModule } from 'primeng/tag';
 import { MetricData } from '../../interfaces/graph';
 import { Agent } from '../../interfaces/agent';
-import { ContractUserConfig } from '../../interfaces/user';
+import { ContractUserConfig, Subscription as UserSubscription } from '../../interfaces/user';
 import { AgentService } from '../../services/agent.service';
 import { WalletService } from '../../services/wallet.service';
 
@@ -39,13 +41,15 @@ interface Metric {
     ReactiveFormsModule,
     FormsModule,
     InputTextModule,
-    ToastModule
+    ToastModule,
+    TooltipModule,
+    TagModule
   ],
   providers: [MessageService],
   templateUrl: './explore-agent.component.html',
   styleUrl: './explore-agent.component.scss'
 })
-export class ExploreAgentComponent implements OnInit {
+export class ExploreAgentComponent implements OnInit, OnDestroy {
   selectedAgent: Agent = {} as Agent;
   performanceData: any = {};
   allMetricsData: MetricData[] = [];
@@ -54,13 +58,25 @@ export class ExploreAgentComponent implements OnInit {
   filteredData: MetricData[] = [];
   loading: boolean = true;
   subscribing = false;
+  unsubscribing = false;
   walletAddress: string = '';
+  
+  // Subscription state
+  isSubscribed = false;
+  currentSubscription: UserSubscription | null = null;
+  formChanged = false;
+  initialFormValues: any = {};
+
+  Math = Math;
+  
   private walletSubscription?: Subscription;
+  private formValueSubscription?: Subscription;
 
   automationLevels = [
-    { label: 'Manual Only', value: 0, description: 'You make all trading decisions' },
-    { label: 'Alert Only', value: 1, description: 'Agent sends alerts, you decide' },
-    { label: 'Auto', value: 2, description: 'Agent trades automatically within limits' }
+    { label: 'Manual Only', value: 'manual', description: 'You make all trading decisions' },
+    { label: 'Alert Only', value: 'alert_only', description: 'Agent sends alerts, you decide' },
+    { label: 'Semi Auto', value: 'semi_auto', description: 'Agent trades with your approval' },
+    { label: 'Full Auto', value: 'full_auto', description: 'Agent trades automatically within limits' }
   ];
   
   availableMetrics: Metric[] = [
@@ -114,26 +130,118 @@ export class ExploreAgentComponent implements OnInit {
 
   private createSubscriptionForm(): FormGroup {
     return this.fb.group({
-      // Risk tolerance as percentage (1-100%)
       riskTolerance: [5, [Validators.required, Validators.min(1), Validators.max(100)]],
-      // Max trades per day (1-1000)
       maxTradesPerDay: [10, [Validators.required, Validators.min(1), Validators.max(1000)]],
-      // Max API cost per day in ETH (will convert to wei)
       maxApiCostPerDay: [0.01, [Validators.required, Validators.min(0.001), Validators.max(10)]],
-      // Max position size as percentage of portfolio (1-100%)
-      maxPositionSize: [10, [ Validators.required, Validators.min(1), Validators.max(100)]],
-      // Stop loss threshold as percentage (1-50%)
+      maxPositionSize: [10, [Validators.required, Validators.min(1), Validators.max(100)]],
       stopLossThreshold: [5, [Validators.required, Validators.min(1), Validators.max(50)]],
-      // Automation level
       automationLevel: ['manual', [Validators.required]],
     });
   }
 
   ngOnInit() {
     this.walletSubscription = this.walletService.wallet$.subscribe(walletInfo => {
-    this.walletAddress = walletInfo?.address || '';
-  });
+      this.walletAddress = walletInfo?.address || '';
+      if (this.selectedAgent?.id) {
+        console.log("checking subscription status");
+        this.checkSubscriptionStatus();
+      }
+    });
     this.loadHistoricalData();
+  }
+
+  ngOnDestroy() {
+    if (this.walletSubscription) {
+      this.walletSubscription.unsubscribe();
+    }
+    if (this.formValueSubscription) {
+      this.formValueSubscription.unsubscribe();
+    }
+  }
+
+  checkSubscriptionStatus() {
+    if (this.walletAddress && this.selectedAgent?.id) {
+      this.agentService.getUserSubscription(this.selectedAgent.id, this.walletAddress)
+        .subscribe({
+          next: (subscription) => {
+            if (!subscription) {
+              this.isSubscribed = false;
+            }else{
+              this.isSubscribed = subscription.isActive;
+            }
+            this.currentSubscription = subscription;
+            this.initializeForm();
+          },
+          error: () => {
+            this.isSubscribed = false;
+            this.currentSubscription = null;
+            this.initializeForm();
+          }
+        });
+    } else {
+      this.initializeForm();
+    }
+  }
+
+  private initializeForm() {
+    let formValues: any = {};
+
+    if (this.isSubscribed && this.currentSubscription) {
+      // Initialize with current subscription values
+      const config = this.currentSubscription.userConfig;
+      formValues = {
+        riskTolerance: Math.round(config.riskTolerance * 100),
+        maxTradesPerDay: config.maxTradesPerDay,
+        maxApiCostPerDay: this.weiToEther(config.maxApiCostPerDay),
+        maxPositionSize: this.weiToPercentage(config.maxPositionSize),
+        stopLossThreshold: Math.round(config.stopLossThreshold * 100),
+        automationLevel: config.automationLevel
+      };
+    } else if (this.selectedAgent?.config) {
+      // Initialize with agent's minimum/safe values
+      const agentConfig = this.selectedAgent.config;
+      formValues = {
+        riskTolerance: Math.min(5, Math.round(agentConfig.maxRiskTolerance * 100)),
+        maxTradesPerDay: Math.min(10, agentConfig.maxTradesPerDay),
+        maxApiCostPerDay: Math.min(0.01, agentConfig.maxApiCostPerDay),
+        maxPositionSize: Math.min(10, Math.round(agentConfig.maxPositionSize * 100)),
+        stopLossThreshold: Math.max(5, Math.round(agentConfig.minStopLoss * 100)),
+        automationLevel: 'manual'
+      };
+    } else {
+      // Default fallback values
+      formValues = {
+        riskTolerance: 5,
+        maxTradesPerDay: 10,
+        maxApiCostPerDay: 0.01,
+        maxPositionSize: 10,
+        stopLossThreshold: 5,
+        automationLevel: 'manual'
+      };
+    }
+
+    this.subscriptionForm.patchValue(formValues);
+    this.initialFormValues = { ...formValues };
+    this.formChanged = false;
+
+    // Clean up previous subscription
+    if (this.formValueSubscription) {
+      this.formValueSubscription.unsubscribe();
+    }
+
+    // Track form changes
+    this.formValueSubscription = this.subscriptionForm.valueChanges.subscribe(() => {
+      this.formChanged = this.hasFormChanged();
+    });
+  }
+
+  private hasFormChanged(): boolean {
+    if (!this.initialFormValues) return false;
+    
+    const currentValues = this.subscriptionForm.value;
+    return Object.keys(this.initialFormValues).some(key => 
+      this.initialFormValues[key] !== currentValues[key]
+    );
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -171,43 +279,42 @@ export class ExploreAgentComponent implements OnInit {
     };
     return displayNames[fieldName] || fieldName;
   }
-  private convertAgentConfigToDisplayValues(agentConfig: any) {
-    return {
-      ...agentConfig,
-      maxRiskTolerance: Math.round(agentConfig.maxRiskTolerance * 100),
-      minStopLoss: Math.round(agentConfig.minStopLoss * 100),
-      maxPositionSize: Math.round(agentConfig.maxPositionSize * 100),
-    };
-  }
 
   private validateAgentLimits(): boolean {
     if (!this.selectedAgent?.config) return true;
 
     const formValue = this.subscriptionForm.value;
     const agentConfig = this.selectedAgent.config;
-    const displayConfig = this.convertAgentConfigToDisplayValues(agentConfig);
     const errors: string[] = [];
 
     // Check if user's limits are within agent's capabilities
-    if (formValue.maxTradesPerDay > displayConfig.maxTradesPerDay) {
-      errors.push(`Max trades per day cannot exceed agent's limit of ${displayConfig.maxTradesPerDay}`);
+    if (formValue.maxTradesPerDay > agentConfig.maxTradesPerDay) {
+      errors.push(`Max trades per day cannot exceed agent's limit of ${agentConfig.maxTradesPerDay}`);
     }
 
-    if (formValue.riskTolerance > displayConfig.maxRiskTolerance) {
-      errors.push(`Risk tolerance cannot exceed agent's limit of ${displayConfig.maxRiskTolerance}%`);
+    if (formValue.riskTolerance > Math.round(agentConfig.maxRiskTolerance * 100)) {
+      errors.push(`Risk tolerance cannot exceed agent's limit of ${Math.round(agentConfig.maxRiskTolerance * 100)}%`);
     }
 
-    if (formValue.stopLossThreshold < displayConfig.minStopLoss) {
-      errors.push(`Stop loss threshold must be at least ${displayConfig.minStopLoss}%`);
+    if (formValue.stopLossThreshold < Math.round(agentConfig.minStopLoss * 100)) {
+      errors.push(`Stop loss threshold must be at least ${Math.round(agentConfig.minStopLoss * 100)}%`);
+    }
+
+    if (formValue.maxPositionSize > Math.round(agentConfig.maxPositionSize * 100)) {
+      errors.push(`Max position size cannot exceed agent's limit of ${Math.round(agentConfig.maxPositionSize * 100)}%`);
+    }
+
+    if (formValue.maxApiCostPerDay > agentConfig.maxApiCostPerDay) {
+      errors.push(`Max API cost cannot exceed agent's limit of ${agentConfig.maxApiCostPerDay} ETH`);
     }
 
     // Check automation level compatibility  
-    const automationLevels = ['manual', 'alert_only', 'auto'];
+    const automationLevels = ['manual', 'alert_only', 'semi_auto', 'full_auto'];
     const userLevel = automationLevels.indexOf(formValue.automationLevel);
-    const agentMaxLevel = automationLevels.indexOf(agentConfig.maxAutomationLevel || 'auto');
+    const agentMaxLevel = automationLevels.indexOf(agentConfig.maxAutomationLevel || 'full_auto');
     
     if (userLevel > agentMaxLevel) {
-      errors.push(`Agent doesn't support ${formValue.automationLevel} automation level`);
+      errors.push(`Agent doesn't support ${formValue.automationLevel.replace('_', ' ')} automation level`);
     }
 
     if (errors.length > 0) {
@@ -224,7 +331,6 @@ export class ExploreAgentComponent implements OnInit {
 
   subscribeToAgent() {
     if (!this.subscriptionForm.valid) {
-      // Mark all fields as touched to show validation errors
       Object.keys(this.subscriptionForm.controls).forEach(key => {
         this.subscriptionForm.get(key)?.markAsTouched();
       });
@@ -252,44 +358,73 @@ export class ExploreAgentComponent implements OnInit {
       automationLevel: formValue.automationLevel,
       maxTradesPerDay: formValue.maxTradesPerDay,
       maxApiCostPerDay: this.etherToWei(formValue.maxApiCostPerDay.toString()),
-      riskTolerance: formValue.riskTolerance/100, // Will be converted to 0-10000 in service
-      maxPositionSize: this.etherToWei((formValue.maxPositionSize / 100).toString()), // Convert percentage to wei
-      stopLossThreshold: formValue.stopLossThreshold/100 // Will be converted to 0-10000 in service
+      riskTolerance: formValue.riskTolerance/100,
+      maxPositionSize: this.etherToWei((formValue.maxPositionSize / 100).toString()),
+      stopLossThreshold: formValue.stopLossThreshold/100
     };
 
-    this.agentService.subscribeToAgent(this.selectedAgent?.id, userConfig).subscribe({
+    const action = this.isSubscribed ? 'updateSubscription' : 'subscribeToAgent';
+    
+    this.agentService[action](this.selectedAgent.id, userConfig).subscribe({
       next: (result) => {
         this.subscribing = false;
+        const actionText = this.isSubscribed ? 'updated' : 'subscribed to';
         this.messageService.add({
           severity: 'success',
-          summary: 'Subscription Successful',
-          detail: `Successfully subscribed to ${this.selectedAgent.name}. Transaction: ${result.txHash.substring(0, 10)}...`
+          summary: `Subscription ${this.isSubscribed ? 'Updated' : 'Successful'}`,
+          detail: `Successfully ${actionText} ${this.selectedAgent.name}. Transaction: ${result.txHash.substring(0, 10)}...`
         });
         
-        // Reset form or navigate away
-        this.subscriptionForm.reset();
-        this.subscriptionForm.patchValue({
-          riskTolerance: 5,
-          maxTradesPerDay: 10,
-          maxApiCostPerDay: 0.01,
-          maxPositionSize: 10,
-          stopLossThreshold: 5,
-          automationLevel: 'manual'
-        });
+        // Refresh subscription status
+        this.checkSubscriptionStatus();
       },
       error: (err) => {
         this.subscribing = false;
-        console.error('Subscription failed:', err);
+        console.error('Subscription operation failed:', err);
         
-        let errorMessage = 'Subscription failed. Please try again.';
+        let errorMessage = `Subscription ${this.isSubscribed ? 'update' : ''} failed. Please try again.`;
         if (err.message) {
           errorMessage = err.message;
         }
         
         this.messageService.add({
           severity: 'error',
-          summary: 'Subscription Failed',
+          summary: `Subscription ${this.isSubscribed ? 'Update ' : ''}Failed`,
           detail: errorMessage
+        });
+      }
+    });
+  }
+
+  unsubscribeFromAgent() {
+    if (!this.walletAddress || !this.currentSubscription) {
+      return;
+    }
+
+    this.unsubscribing = true;
+    
+    this.agentService.unsubscribeFromAgent(this.selectedAgent.id).subscribe({
+      next: (result) => {
+        this.unsubscribing = false;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Unsubscribed Successfully',
+          detail: `Successfully unsubscribed from ${this.selectedAgent.name}. Transaction: ${result.txHash.substring(0, 10)}...`
+        });
+        
+        // Reset state
+        this.isSubscribed = false;
+        this.currentSubscription = null;
+        this.initializeForm();
+      },
+      error: (err) => {
+        this.unsubscribing = false;
+        console.error('Unsubscription failed:', err);
+        
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Unsubscription Failed',
+          detail: err.message || 'Failed to unsubscribe. Please try again.'
         });
       }
     });
@@ -303,6 +438,10 @@ export class ExploreAgentComponent implements OnInit {
 
   private weiToEther(wei: string): number {
     return parseFloat(wei) / Math.pow(10, 18);
+  }
+
+  private weiToPercentage(weiAmount: string): number {
+    return this.weiToEther(weiAmount) * 100;
   }
 
   // Chart and data methods (unchanged)
@@ -331,11 +470,17 @@ export class ExploreAgentComponent implements OnInit {
         const { performance, ...agent } = data;
         this.selectedAgent = agent as Agent;
         this.performanceData = performance;
+        
+        // Check subscription status once we have the agent
+        if (this.walletAddress) {
+          this.checkSubscriptionStatus();
+        }
         return this.agentService.getGraphData(this.selectedAgent.id);
       })
     ).subscribe({
       next: (result) => {
         this.allMetricsData = result;
+        console.log('Historical data loaded:', this.allMetricsData);
         this.initCharts();
         this.loading = false;
         this.filterDataByMetric('total_return_pct');
@@ -436,11 +581,4 @@ export class ExploreAgentComponent implements OnInit {
     if (!value) return '0';
     return Math.round(value * 100) + '';
   }
-
-  ngOnDestroy() {
-  // Clean up subscription to prevent memory leaks
-  if (this.walletSubscription) {
-    this.walletSubscription.unsubscribe();
-  }
-}
 }

@@ -6,7 +6,7 @@ import { MarketDataService } from './MarketDataService';
 import { Agent, AgentConfig, MarketContext, TradingDecision, AgentCreationResult, 
   PrepData, UserSubscription, UserConfig, ContractUserConfig, MetricData, 
   UserTokenBalance} from '../types/agent';
-import { CallData, json } from 'starknet';
+import { CallData, json, shortString } from 'starknet';
 import fs from 'fs';
 
 
@@ -30,7 +30,7 @@ export class AgentService {
     agentConfig: AgentConfig
   ): Promise<AgentCreationResult> {
     try {
-      const agentId: string = `${Date.now()}_${Math.random().toString(36)}`;
+      const agentId = (Date.now() * 1000 + Math.floor(Math.random() * 1000)).toString();
       this.contractService.createAgent(agentId, name, agentConfig);
 
       await this.db.query(`
@@ -314,7 +314,8 @@ export class AgentService {
 
   async prepareSubscription(
     agentId: string,
-    userConfig: UserConfig
+    userConfig: UserConfig,
+    functionName: string
   ): Promise<PrepData> {
     // Get agent configuration to validate limits
     const agentResult = await this.db.query(
@@ -335,11 +336,10 @@ export class AgentService {
     const contractConfig = this.convertToContractConfig(userConfig);
 
     // Prepare contract call data
-    
-    const prepCallData = this.contractCallData.compile('subscribe_to_agent', {
+    const prepCallData = this.contractCallData.compile(functionName, {
       agent_id: agentId,
       user_config: {
-        automation_level: contractConfig.automation_level,    // Don't use toBigInt here
+        automation_level: contractConfig.automation_level,
         max_trades_per_day: contractConfig.max_trades_per_day,
         max_api_cost_per_day: contractConfig.max_api_cost_per_day,
         risk_tolerance: contractConfig.risk_tolerance,
@@ -350,7 +350,7 @@ export class AgentService {
     
     return {
       contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
-      entrypoint: 'subscribe_to_agent',
+      entrypoint: functionName,
       calldata: prepCallData,
     };
   }
@@ -374,7 +374,7 @@ export class AgentService {
       `, [userId, agentId, txHash, JSON.stringify(userConfig)]);
 
       // Start background verification process
-      this.verifySubscriptionAsync(userId, agentId);
+      //this.verifySubscriptionAsync(userId, agentId);
       
     } catch (error) {
       console.error('Subscription confirmation error:', error);
@@ -412,7 +412,9 @@ export class AgentService {
   }
 
   async unsubscribeFromAgent(agentId: string): Promise<PrepData> {
-    const callData = CallData.compile([agentId]);
+    const callData = this.contractCallData.compile('unsubscribe_from_agent', {
+      agent_id: agentId
+    });
 
     return {
       contractAddress: process.env['AGENT_CONTRACT_ADDRESS']!,
@@ -424,7 +426,7 @@ export class AgentService {
   async confirmUnsubscription(userId: string, agentId: string, txHash: string): Promise<void> {
     await this.db.query(`
       UPDATE user_subscriptions 
-      SET is_active = false, unsubscribed_at = NOW(), unsubscribe_tx_hash = $3, user_config = NULL
+      SET is_active = false, unsubscribed_at = NOW(), unsubscribe_tx_hash = $3
       WHERE user_id = $1 AND agent_id = $2
     `, [userId, agentId, txHash]);
   }
@@ -545,6 +547,32 @@ export class AgentService {
       isActive: row.is_active,
       userConfig: row.user_config
     }));
+  }
+
+  async getUserSubscription(agentId: string, userAddress: string) {
+    try {
+      // First check database for subscription
+      const result = await this.db.query(`
+        SELECT * FROM user_subscriptions 
+        WHERE agent_id = $1 AND user_id = $2 AND is_active = true
+      `, [agentId, userAddress]);
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+      const row = result.rows[0];
+      return {
+        agentId: row.agent_id,
+        txHash: row.tx_hash,
+        subscribedAt: row.subscribed_at.toISOString(),
+        isActive: row.is_active,
+        userConfig: row.user_config
+      };
+      
+    } catch (error: Error | any) {
+      console.error('Error fetching user subscription:', error);
+      throw new Error(`Failed to fetch subscription: ${error.message}`);
+    }
   }
 
   // ============================================================================

@@ -74,7 +74,7 @@ router.get('/:agentId/graph-data', async (req: any, res) => {
 });
 
 // ============================================================================
-// SUBSCRIPTION MANAGEMENT
+// FUND MANAGEMENT
 // ============================================================================
 
 // Deposit tokens to contract for trading
@@ -211,6 +211,10 @@ router.get('/user/:userId/balances', async (req: any, res) => {
   }
 });
 
+// ============================================================================
+// SUBSCRIPTION MANAGEMENT
+// ============================================================================
+
 // Prepare subscription transaction (returns data for frontend wallet)
 router.post('/:agentId/prepare-subscription', async (req: any, res) => {
   try {
@@ -231,40 +235,8 @@ router.post('/:agentId/prepare-subscription', async (req: any, res) => {
       res.status(400).json({ error: `Missing required userConfig fields: ${missingFields.join(', ')}` });
       return;
     }
-
-    // Validate automation level
-    const validAutomationLevels = ['manual', 'alert_only', 'auto'];
-    if (!validAutomationLevels.includes(userConfig.automationLevel)) {
-      res.status(400).json({ error: 'Invalid automation level' });
-      return;
-    }
-
-    // Validate numeric ranges
-    if (userConfig.riskTolerance < 0 || userConfig.riskTolerance > 1) {
-      res.status(400).json({ error: 'Risk tolerance must be between 0 and 100' });
-      return;
-    }
-
-    if (userConfig.stopLossThreshold < 0 || userConfig.stopLossThreshold > 1) {
-      res.status(400).json({ error: 'Stop loss threshold must be between 0 and 100' });
-      return;
-    }
-
-    if (userConfig.maxTradesPerDay < 1 || userConfig.maxTradesPerDay > 1000) {
-      res.status(400).json({ error: 'Max trades per day must be between 1 and 1000' });
-      return;
-    }
-
-    // Validate wei amounts
-    try {
-      BigInt(userConfig.maxApiCostPerDay);
-      BigInt(userConfig.maxPositionSize);
-    } catch (e) {
-      res.status(400).json({ error: 'Invalid wei amount format' });
-      return;
-    }
     
-    const prepData = await agentService.prepareSubscription(agentId, userConfig);
+    const prepData = await agentService.prepareSubscription(agentId, userConfig, 'subscribe_to_agent');
     res.json(prepData);
   } catch (error: any) {
     console.error('Subscription preparation error:', error);
@@ -272,8 +244,39 @@ router.post('/:agentId/prepare-subscription', async (req: any, res) => {
     // Handle specific error types
     if (error.message.includes('not found')) {
       res.status(404).json({ error: error.message });
-    } else if (error.message.includes('Validation failed')) {
-      res.status(422).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+router.put('/:agentId/prepare-subscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userConfig } = req.body;
+    
+    if (!userConfig) {
+      res.status(400).json({ error: 'Missing required field: userConfig' });
+      return;
+    }
+
+    const requiredFields = ['automationLevel', 'maxTradesPerDay', 'maxApiCostPerDay', 'riskTolerance', 'maxPositionSize', 'stopLossThreshold'];
+    const missingFields = requiredFields.filter(field => !(field in userConfig));
+    
+    if (missingFields.length > 0) {
+      res.status(400).json({ error: `Missing required userConfig fields: ${missingFields.join(', ')}` });
+      return;
+    }
+
+    const prepData = await agentService.prepareSubscription(agentId, userConfig, 'update_subscription');
+    res.json(prepData);
+  } catch (error: any) {
+    console.error('Subscription preparation error:', error);
+    
+    // Handle specific error types
+    if (error.message.includes('not found')) {
+      res.status(404).json({ error: error.message });
     } else {
       res.status(500).json({ error: error.message });
     }
@@ -354,6 +357,60 @@ router.get('/user/:userId/subscriptions', async (req: any, res) => {
   } catch (error: any) {
     console.error('Subscriptions fetch error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/agents/:agentId/subscription
+ * Get user's subscription to a specific agent
+ */
+router.get('/:agentId/subscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userAddress } = req.query;
+
+    if (!userAddress) {
+      return res.status(400).json({ error: 'User address is required' });
+    }
+
+    const subscription = await agentService.getUserSubscription(agentId, userAddress);
+    
+    if (!subscription) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+
+    return res.json(subscription);
+  } catch (error: any) {
+    console.error('Error fetching subscription:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/agents/:agentId/subscription
+ * Unsubscribe from agent
+ */
+router.delete('/agents/:agentId/subscription', async (req: any, res) => {
+  try {
+    const agentService = req.services.get('agentService');
+    const { agentId } = req.params;
+    const { userAddress } = req.body;
+    
+    if (!userAddress) {
+      return res.status(401).json({ error: 'User address is required' });
+    }
+
+    const result = await agentService.unsubscribeUser(agentId, userAddress);
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Error unsubscribing:', error);
+    
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    return res.status(500).json({ error: error.message });
   }
 });
 

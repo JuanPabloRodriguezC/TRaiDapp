@@ -7,6 +7,7 @@ import { WalletService } from './wallet.service';
 import { PrepData } from '../interfaces/responses';
 import { AgentResponse } from '../interfaces/responses';
 import { Agent, AgentConfig } from '../interfaces/agent';
+import { Subscription as UserSubscription }  from '../interfaces/user';
 import { MetricData } from '../interfaces/graph';
 
 // Contract-compatible UserConfig interface
@@ -57,7 +58,7 @@ export class AgentService {
   }
 
   depositForTrading(tokenAddress: string, amount: string): Observable<{success: boolean, txHash: string}> {
-    const contractAddress = '0x04e136f7795e3262bac277a43a766b02979125dac2c5ebb0066f01648421e3d8'; // Example contract address
+    const contractAddress = '0x06c8a750c6b4798d169a750c66139f79f7e5ab7dc84f600d2136250414f791ab';
     const userId = this.walletService.getConnectedAddress();
     
     if (!userId) {
@@ -241,6 +242,73 @@ export class AgentService {
     );
   }
 
+  /**
+   * Update existing subscription
+   */
+  updateSubscription(agentId: string, userConfig: ContractUserConfig): Observable<any> {
+    const userId = this.walletService.getConnectedAddress();
+    return this.http.put<PrepData>(`${this.apiUrl}/agents/${agentId}/prepare-subscription`, {
+      userConfig
+    }).pipe(
+      switchMap(prepData => {
+        return from(this.executeWalletTransaction(prepData)).pipe(
+          switchMap(txHash => {
+            return this.http.post<{success: boolean}>(`${this.apiUrl}/agents/${agentId}/confirm-subscription`, {
+              userId,
+              txHash,
+              userConfig
+            }).pipe(
+              switchMap(response => {
+                return new Observable<{success: boolean, txHash: string}>(observer => {
+                  observer.next({ success: response.success, txHash });
+                  observer.complete();
+                });
+              })
+            );
+          })
+        );
+      }),
+      catchError((error) => {
+        console.error('Update subscription failed:', error);
+        throw error;
+      })
+    );
+  }
+
+  unsubscribeFromAgent(agentId: string): Observable<{success: boolean, txHash: string}> {
+    const userId = this.walletService.getConnectedAddress();
+    
+    if (!userId) {
+      return throwError(() => new Error('Wallet not connected'));
+    }
+
+    // Step 1: Prepare unsubscription transaction
+    return this.http.post<PrepData>(`${this.apiUrl}/agents/${agentId}/prepare-unsubscription`, {
+      userId
+    }).pipe(
+      // Step 2: Execute transaction with user's wallet
+      switchMap(prepData => {
+        return from(this.executeWalletTransaction(prepData)).pipe(
+          // Step 3: Confirm unsubscription on backend
+          switchMap(txHash => {
+            return this.http.post<{success: boolean}>(`${this.apiUrl}/agents/${agentId}/confirm-unsubscription`, {
+              userId,
+              txHash
+            }).pipe(
+              switchMap(response => {
+                return new Observable<{success: boolean, txHash: string}>(observer => {
+                  observer.next({ success: response.success, txHash });
+                  observer.complete();
+                });
+              })
+            );
+          })
+        );
+      }),
+      catchError(this.handleError)
+    );
+  }
+
   private validateUserConfig(userConfig: ContractUserConfig): string | null {
     // Client-side validation
     if (!userConfig.automationLevel) {
@@ -285,37 +353,16 @@ export class AgentService {
     return null;
   }
 
-  unsubscribeFromAgent(agentId: string): Observable<{success: boolean, txHash: string}> {
-    const userId = this.walletService.getConnectedAddress();
-    
-    if (!userId) {
-      return throwError(() => new Error('Wallet not connected'));
-    }
-
-    // Step 1: Prepare unsubscription transaction
-    return this.http.post<PrepData>(`${this.apiUrl}/agents/${agentId}/prepare-unsubscription`, {
-      userId
+  getUserSubscription(agentId: string, userAddress: string): Observable<UserSubscription | null> {
+    return this.http.get<UserSubscription>(`${this.apiUrl}/agents/${agentId}/subscription`, {
+      params: { userAddress }
     }).pipe(
-      // Step 2: Execute transaction with user's wallet
-      switchMap(prepData => {
-        return from(this.executeWalletTransaction(prepData)).pipe(
-          // Step 3: Confirm unsubscription on backend
-          switchMap(txHash => {
-            return this.http.post<{success: boolean}>(`${this.apiUrl}/agents/${agentId}/confirm-unsubscription`, {
-              userId,
-              txHash
-            }).pipe(
-              switchMap(response => {
-                return new Observable<{success: boolean, txHash: string}>(observer => {
-                  observer.next({ success: response.success, txHash });
-                  observer.complete();
-                });
-              })
-            );
-          })
-        );
-      }),
-      catchError(this.handleError)
+      catchError((error) => {
+        if (error.status === 404) {
+          return of(null); // No subscription found
+        }
+        throw error;
+      })
     );
   }
 

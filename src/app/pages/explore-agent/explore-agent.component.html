@@ -2,12 +2,23 @@
 <div class="flex flex-col gap-6">
     <!-- Agent Description - Mobile First -->
     <div class="card md:hidden">
-        <div class="font-semibold text-lg mb-3">About This Agent</div>
+        <div class="font-semibold text-lg mb-3 flex items-center justify-between">
+            About This Agent
+            <p-tag 
+                *ngIf="isSubscribed" 
+                value="Subscribed" 
+                severity="success" 
+                [rounded]="true">
+            </p-tag>
+        </div>
         <p class="text-surface-600 dark:text-surface-400 mb-3">
-            {{ selectedAgent.config.strategy || 'Advanced trading agent using momentum-based strategies...' }}
+            {{ selectedAgent.description || 'Advanced trading agent using momentum-based strategies...' }}
         </p>
         <div class="text-sm text-surface-500 dark:text-surface-500">
             Created: {{ selectedAgent.created_at | date:'mediumDate' }}
+        </div>
+        <div *ngIf="isSubscribed && currentSubscription" class="text-sm text-surface-500 dark:text-surface-500 mt-1">
+            Subscribed: {{ currentSubscription.subscribedAt | date:'mediumDate' }}
         </div>
     </div>
 
@@ -47,7 +58,7 @@
             </div>
 
             <!-- Chart Content -->
-            <div *ngIf="performanceData.length > 0; else noPerformanceData">
+            <div *ngIf="allMetricsData.length > 0; else noPerformanceData">
                 <div *ngIf="getCurrentMetric() as currentMetric">
                     <div class="mb-4">
                         <h3 class="text-lg font-medium text-surface-900 dark:text-surface-0 mb-1">
@@ -80,118 +91,151 @@
 
         <!-- Subscription Form - Desktop Only -->
         <div class="hidden md:block w-80">
-            <div class="card" [style.opacity]="subscribing ? '0.7' : '1'">
+            <div class="card" [style.opacity]="subscribing || unsubscribing ? '0.7' : '1'">
                 <div class="font-semibold text-lg mb-4 flex items-center justify-between">
-                    Subscribe to Agent
-                    <i *ngIf="subscribing" class="pi pi-spinner pi-spin"></i>
+                    <span>{{ isSubscribed ? 'Manage Subscription' : 'Subscribe to Agent' }}</span>
+                    <div class="flex items-center gap-2">
+                        <p-tag 
+                            *ngIf="isSubscribed" 
+                            value="Subscribed" 
+                            severity="success" 
+                            [rounded]="true">
+                        </p-tag>
+                        <i *ngIf="subscribing || unsubscribing" class="pi pi-spinner pi-spin"></i>
+                    </div>
                 </div>
                 
                 <form [formGroup]="subscriptionForm" (ngSubmit)="subscribeToAgent()" class="space-y-4">
                     <!-- Risk Tolerance -->
                     <div class="field">
-                        <label class="block text-sm font-medium mb-2">Risk Tolerance (%) *</label>
+                        <label class="block text-sm font-medium mb-2">
+                            Risk Tolerance (%) *
+                            <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                               pTooltip="Maximum risk per trade as percentage of portfolio" 
+                               tooltipPosition="top"></i>
+                        </label>
                         <p-inputNumber 
                             formControlName="riskTolerance"
                             [showButtons]="true"
                             [min]="1" 
-                            [max]="100"
+                            [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxRiskTolerance * 100) : 100"
                             suffix="%"
                             placeholder="5"
-                            [disabled]="subscribing"
+                            [disabled]="subscribing || unsubscribing"
                             [class]="'w-full ' + (isFieldInvalid('riskTolerance') ? 'ng-invalid ng-dirty' : '')">
                         </p-inputNumber>
                         <small class="text-red-500" *ngIf="isFieldInvalid('riskTolerance')">
                             {{ getFieldError('riskTolerance') }}
                         </small>
-                        <small class="text-surface-500 block mt-1">Maximum risk per trade</small>
                     </div>
 
                     <!-- Max Position Size -->
                     <div class="field">
-                        <label class="block text-sm font-medium mb-2">Max Position Size (%) *</label>
+                        <label class="block text-sm font-medium mb-2">
+                            Max Position Size (%) *
+                            <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                               pTooltip="Maximum percentage of portfolio allocated to a single position" 
+                               tooltipPosition="top"></i>
+                        </label>
                         <p-inputNumber 
                             formControlName="maxPositionSize"
                             [showButtons]="true"
                             [min]="1" 
-                            [max]="100"
+                            [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxPositionSize * 100) : 100"
                             suffix="%"
                             placeholder="10"
-                            [disabled]="subscribing"
+                            [disabled]="subscribing || unsubscribing"
                             [class]="'w-full ' + (isFieldInvalid('maxPositionSize') ? 'ng-invalid ng-dirty' : '')">
                         </p-inputNumber>
                         <small class="text-red-500" *ngIf="isFieldInvalid('maxPositionSize')">
                             {{ getFieldError('maxPositionSize') }}
                         </small>
-                        <small class="text-surface-500 block mt-1">Max % of portfolio per position</small>
                     </div>
 
                     <!-- Max Trades per Day -->
                     <div class="field">
-                        <label class="block text-sm font-medium mb-2">Max Trades per Day *</label>
+                        <label class="block text-sm font-medium mb-2">
+                            Max Trades per Day *
+                            <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                               pTooltip="Maximum number of trades the agent can execute per day" 
+                               tooltipPosition="top"></i>
+                        </label>
                         <p-inputNumber 
                             formControlName="maxTradesPerDay"
                             [showButtons]="true"
                             [min]="1" 
-                            [max]="1000"
+                            [max]="selectedAgent.config ? selectedAgent.config.maxTradesPerDay : 1000"
                             placeholder="10"
-                            [disabled]="subscribing"
+                            [disabled]="subscribing || unsubscribing"
                             [class]="'w-full ' + (isFieldInvalid('maxTradesPerDay') ? 'ng-invalid ng-dirty' : '')">
                         </p-inputNumber>
                         <small class="text-red-500" *ngIf="isFieldInvalid('maxTradesPerDay')">
                             {{ getFieldError('maxTradesPerDay') }}
                         </small>
-                        <small class="text-surface-500 block mt-1">Daily trading limit</small>
                     </div>
 
                     <!-- Stop Loss Threshold -->
                     <div class="field">
-                        <label class="block text-sm font-medium mb-2">Stop Loss Threshold (%) *</label>
+                        <label class="block text-sm font-medium mb-2">
+                            Stop Loss Threshold (%) *
+                            <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                               pTooltip="Percentage loss at which positions are automatically closed" 
+                               tooltipPosition="top"></i>
+                        </label>
                         <p-inputNumber 
                             formControlName="stopLossThreshold"
                             [showButtons]="true"
-                            [min]="1" 
+                            [min]="selectedAgent.config ? Math.round(selectedAgent.config.minStopLoss * 100) : 1" 
                             [max]="50"
                             suffix="%"
                             placeholder="5"
-                            [disabled]="subscribing"
+                            [disabled]="subscribing || unsubscribing"
                             [class]="'w-full ' + (isFieldInvalid('stopLossThreshold') ? 'ng-invalid ng-dirty' : '')">
                         </p-inputNumber>
                         <small class="text-red-500" *ngIf="isFieldInvalid('stopLossThreshold')">
                             {{ getFieldError('stopLossThreshold') }}
                         </small>
-                        <small class="text-surface-500 block mt-1">Automatic stop loss trigger</small>
                     </div>
 
                     <!-- Max API Cost -->
                     <div class="field">
-                        <label class="block text-sm font-medium mb-2">Max API Cost per Day (ETH) *</label>
+                        <label class="block text-sm font-medium mb-2">
+                            Max API Cost per Day (ETH) *
+                            <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                               pTooltip="Daily budget for AI model usage and API calls" 
+                               tooltipPosition="top"></i>
+                        </label>
                         <p-inputNumber 
                             formControlName="maxApiCostPerDay"
                             [showButtons]="true"
                             [min]="0.001" 
-                            [max]="10"
+                            [max]="selectedAgent.config ? selectedAgent.config.maxApiCostPerDay : 10"
                             [minFractionDigits]="3"
                             [maxFractionDigits]="6"
                             placeholder="0.01"
-                            [disabled]="subscribing"
+                            [disabled]="subscribing || unsubscribing"
                             [class]="'w-full ' + (isFieldInvalid('maxApiCostPerDay') ? 'ng-invalid ng-dirty' : '')">
                         </p-inputNumber>
                         <small class="text-red-500" *ngIf="isFieldInvalid('maxApiCostPerDay')">
                             {{ getFieldError('maxApiCostPerDay') }}
                         </small>
-                        <small class="text-surface-500 block mt-1">Daily AI model usage limit</small>
                     </div>
 
                     <!-- Automation Level -->
                     <div class="field">
-                        <label class="block text-sm font-medium mb-2">Automation Level *</label>
+                        <label class="block text-sm font-medium mb-2">
+                            Automation Level *
+                            <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                               pTooltip="Level of autonomous trading allowed for this agent" 
+                               tooltipPosition="top"></i>
+                        </label>
                         <p-dropdown 
                             [options]="automationLevels" 
                             formControlName="automationLevel"
                             optionLabel="label" 
                             optionValue="value"
                             placeholder="Select Automation"
-                            [disabled]="subscribing"
+                            [disabled]="subscribing || unsubscribing"
                             [class]="'w-full ' + (isFieldInvalid('automationLevel') ? 'ng-invalid ng-dirty' : '')">
                             <ng-template pTemplate="selectedItem" let-item>
                                 <div *ngIf="item">
@@ -221,18 +265,37 @@
                         </div>
                     </div>
 
-                    <!-- Subscribe Button -->
-                    <p-button 
-                        [label]="subscribing ? 'Subscribing...' : 'Subscribe to Agent'" 
-                        [icon]="subscribing ? 'pi pi-spinner pi-spin' : 'pi pi-check'"
-                        type="submit"
-                        class="w-full"
-                        [loading]="subscribing"
-                        [disabled]="subscriptionForm.invalid || subscribing || !walletAddress">
-                    </p-button>
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col gap-2">
+                        <!-- Subscribe/Update Button -->
+                        <p-button 
+                            [label]="subscribing ? (isSubscribed ? 'Updating...' : 'Subscribing...') : (isSubscribed ? 'Update Subscription' : 'Subscribe to Agent')" 
+                            [icon]="subscribing ? 'pi pi-spinner pi-spin' : (isSubscribed ? 'pi pi-pencil' : 'pi pi-check')"
+                            type="submit"
+                            class="w-full"
+                            [loading]="subscribing"
+                            [disabled]="subscriptionForm.invalid || subscribing || unsubscribing || !walletAddress || (isSubscribed && !formChanged)">
+                        </p-button>
+
+                        <!-- Unsubscribe Button -->
+                        <p-button 
+                            *ngIf="isSubscribed"
+                            label="Unsubscribe" 
+                            icon="pi pi-times"
+                            severity="danger"
+                            [outlined]="true"
+                            type="button"
+                            class="w-full"
+                            [loading]="unsubscribing"
+                            [disabled]="subscribing || unsubscribing"
+                            (click)="unsubscribeFromAgent()">
+                        </p-button>
+                    </div>
 
                     <div class="text-xs text-surface-500 mt-2">
-                        By subscribing, you authorize this agent to trade within your specified limits.
+                        {{ isSubscribed 
+                            ? 'Changes will update your existing subscription settings.' 
+                            : 'By subscribing, you authorize this agent to trade within your specified limits.' }}
                     </div>
                 </form>
             </div>
@@ -241,25 +304,52 @@
 
     <!-- Agent Description - Desktop -->
     <div class="hidden md:block card">
-        <div class="font-semibold text-lg mb-3">About This Agent</div>
+        <div class="font-semibold text-lg mb-3 flex items-center justify-between">
+            About This Agent
+            <p-tag 
+                *ngIf="isSubscribed" 
+                value="Subscribed" 
+                severity="success" 
+                [rounded]="true">
+            </p-tag>
+        </div>
         <div class="grid md:grid-cols-2 gap-6">
             <div>
                 <p class="text-surface-600 dark:text-surface-400 mb-4">
-                    {{ selectedAgent.name || 'Advanced trading agent using momentum-based strategies with risk management protocols...' }}
+                    {{ selectedAgent.description || 'Advanced trading agent using momentum-based strategies with risk management protocols...' }}
                 </p>
                 <div class="space-y-2 text-sm">
                     <div class="flex justify-between">
                         <span class="text-surface-500">Strategy:</span>
-                        <span class="font-medium">{{ selectedAgent.config.strategy }}</span>
-                    </div>
-                     <div class="flex justify-between">
-                        <span class="text-surface-500">Description:</span>
-                        <span class="font-medium">{{ selectedAgent.description }}</span>
+                        <span class="font-medium">{{ selectedAgent ? selectedAgent.config.strategy : null }}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-surface-500">Created:</span>
                         <span class="font-medium">{{ selectedAgent.created_at | date:'mediumDate' }}</span>
                     </div>
+                    <div *ngIf="isSubscribed && currentSubscription" class="flex justify-between">
+                        <span class="text-surface-500">Subscribed:</span>
+                        <span class="font-medium">{{ currentSubscription.subscribedAt | date:'mediumDate' }}</span>
+                    </div>
+                </div>
+            </div>
+            <div *ngIf="selectedAgent.config" class="space-y-2 text-sm">
+                <div class="font-medium mb-2">Agent Capabilities</div>
+                <div class="flex justify-between">
+                    <span class="text-surface-500">Max Risk Tolerance:</span>
+                    <span class="font-medium">{{ Math.round(selectedAgent.config.maxRiskTolerance * 100) }}%</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-surface-500">Max Position Size:</span>
+                    <span class="font-medium">{{ Math.round(selectedAgent.config.maxPositionSize * 100) }}%</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-surface-500">Max Trades/Day:</span>
+                    <span class="font-medium">{{ selectedAgent.config.maxTradesPerDay }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-surface-500">Max Automation:</span>
+                    <span class="font-medium">{{ selectedAgent.config.maxAutomationLevel.replace('_', ' ') }}</span>
                 </div>
             </div>
         </div>
@@ -267,11 +357,221 @@
 
     <!-- Mobile Subscription Form -->
     <div class="md:hidden card">
-        <div class="font-semibold text-lg mb-4">Subscribe to Agent</div>
+        <div class="font-semibold text-lg mb-4 flex items-center justify-between">
+            <span>{{ isSubscribed ? 'Manage Subscription' : 'Subscribe to Agent' }}</span>
+            <i *ngIf="subscribing || unsubscribing" class="pi pi-spinner pi-spin"></i>
+        </div>
         
         <form [formGroup]="subscriptionForm" (ngSubmit)="subscribeToAgent()" class="space-y-4">
-            <!-- Same form fields as desktop but without the hidden class -->
-            <!-- Copy the form content from above -->
+            <!-- Risk Tolerance -->
+            <div class="field">
+                <label class="block text-sm font-medium mb-2">
+                    Risk Tolerance (%) *
+                    <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                       pTooltip="Maximum risk per trade as percentage of portfolio" 
+                       tooltipPosition="top"></i>
+                </label>
+                <p-inputNumber 
+                    formControlName="riskTolerance"
+                    [showButtons]="true"
+                    [min]="1" 
+                    [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxRiskTolerance * 100) : 100"
+                    suffix="%"
+                    placeholder="5"
+                    [disabled]="subscribing || unsubscribing"
+                    [class]="'w-full ' + (isFieldInvalid('riskTolerance') ? 'ng-invalid ng-dirty' : '')">
+                </p-inputNumber>
+                <small class="text-red-500" *ngIf="isFieldInvalid('riskTolerance')">
+                    {{ getFieldError('riskTolerance') }}
+                </small>
+                <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
+                    Agent limit: {{ Math.round(selectedAgent.config.maxRiskTolerance * 100) }}%
+                </small>
+            </div>
+
+            <!-- Max Position Size -->
+            <div class="field">
+                <label class="block text-sm font-medium mb-2">
+                    Max Position Size (%) *
+                    <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                       pTooltip="Maximum percentage of portfolio allocated to a single position" 
+                       tooltipPosition="top"></i>
+                </label>
+                <p-inputNumber 
+                    formControlName="maxPositionSize"
+                    [showButtons]="true"
+                    [min]="1" 
+                    [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxPositionSize * 100) : 100"
+                    suffix="%"
+                    placeholder="10"
+                    [disabled]="subscribing || unsubscribing"
+                    [class]="'w-full ' + (isFieldInvalid('maxPositionSize') ? 'ng-invalid ng-dirty' : '')">
+                </p-inputNumber>
+                <small class="text-red-500" *ngIf="isFieldInvalid('maxPositionSize')">
+                    {{ getFieldError('maxPositionSize') }}
+                </small>
+                <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
+                    Agent limit: {{ Math.round(selectedAgent.config.maxPositionSize * 100) }}%
+                </small>
+            </div>
+
+            <!-- Max Trades per Day -->
+            <div class="field">
+                <label class="block text-sm font-medium mb-2">
+                    Max Trades per Day *
+                    <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                       pTooltip="Maximum number of trades the agent can execute per day" 
+                       tooltipPosition="top"></i>
+                </label>
+                <p-inputNumber 
+                    formControlName="maxTradesPerDay"
+                    [showButtons]="true"
+                    [min]="1" 
+                    [max]="selectedAgent.config ? selectedAgent.config.maxTradesPerDay : 1000"
+                    placeholder="10"
+                    [disabled]="subscribing || unsubscribing"
+                    [class]="'w-full ' + (isFieldInvalid('maxTradesPerDay') ? 'ng-invalid ng-dirty' : '')">
+                </p-inputNumber>
+                <small class="text-red-500" *ngIf="isFieldInvalid('maxTradesPerDay')">
+                    {{ getFieldError('maxTradesPerDay') }}
+                </small>
+                <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
+                    Agent limit: {{ selectedAgent.config.maxTradesPerDay }}
+                </small>
+            </div>
+
+            <!-- Stop Loss Threshold -->
+            <div class="field">
+                <label class="block text-sm font-medium mb-2">
+                    Stop Loss Threshold (%) *
+                    <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                       pTooltip="Percentage loss at which positions are automatically closed" 
+                       tooltipPosition="top"></i>
+                </label>
+                <p-inputNumber 
+                    formControlName="stopLossThreshold"
+                    [showButtons]="true"
+                    [min]="selectedAgent.config ? Math.round(selectedAgent.config.minStopLoss * 100) : 1" 
+                    [max]="50"
+                    suffix="%"
+                    placeholder="5"
+                    [disabled]="subscribing || unsubscribing"
+                    [class]="'w-full ' + (isFieldInvalid('stopLossThreshold') ? 'ng-invalid ng-dirty' : '')">
+                </p-inputNumber>
+                <small class="text-red-500" *ngIf="isFieldInvalid('stopLossThreshold')">
+                    {{ getFieldError('stopLossThreshold') }}
+                </small>
+                <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
+                    Agent minimum: {{ Math.round(selectedAgent.config.minStopLoss * 100) }}%
+                </small>
+            </div>
+
+            <!-- Max API Cost -->
+            <div class="field">
+                <label class="block text-sm font-medium mb-2">
+                    Max API Cost per Day (ETH) *
+                    <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                       pTooltip="Daily budget for AI model usage and API calls" 
+                       tooltipPosition="top"></i>
+                </label>
+                <p-inputNumber 
+                    formControlName="maxApiCostPerDay"
+                    [showButtons]="true"
+                    [min]="0.001" 
+                    [max]="selectedAgent.config ? selectedAgent.config.maxApiCostPerDay : 10"
+                    [minFractionDigits]="3"
+                    [maxFractionDigits]="6"
+                    placeholder="0.01"
+                    [disabled]="subscribing || unsubscribing"
+                    [class]="'w-full ' + (isFieldInvalid('maxApiCostPerDay') ? 'ng-invalid ng-dirty' : '')">
+                </p-inputNumber>
+                <small class="text-red-500" *ngIf="isFieldInvalid('maxApiCostPerDay')">
+                    {{ getFieldError('maxApiCostPerDay') }}
+                </small>
+                <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
+                    Agent limit: {{ selectedAgent.config.maxApiCostPerDay }} ETH
+                </small>
+            </div>
+
+            <!-- Automation Level -->
+            <div class="field">
+                <label class="block text-sm font-medium mb-2">
+                    Automation Level *
+                    <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help" 
+                       pTooltip="Level of autonomous trading allowed for this agent" 
+                       tooltipPosition="top"></i>
+                </label>
+                <p-dropdown 
+                    [options]="automationLevels" 
+                    formControlName="automationLevel"
+                    optionLabel="label" 
+                    optionValue="value"
+                    placeholder="Select Automation"
+                    [disabled]="subscribing || unsubscribing"
+                    [class]="'w-full ' + (isFieldInvalid('automationLevel') ? 'ng-invalid ng-dirty' : '')">
+                    <ng-template pTemplate="selectedItem" let-item>
+                        <div *ngIf="item">
+                            <div class="font-medium">{{ item.label }}</div>
+                            <div class="text-xs text-surface-500">{{ item.description }}</div>
+                        </div>
+                    </ng-template>
+                    <ng-template pTemplate="item" let-item>
+                        <div>
+                            <div class="font-medium">{{ item.label }}</div>
+                            <div class="text-xs text-surface-500">{{ item.description }}</div>
+                        </div>
+                    </ng-template>
+                </p-dropdown>
+                <small class="text-red-500" *ngIf="isFieldInvalid('automationLevel')">
+                    {{ getFieldError('automationLevel') }}
+                </small>
+                <small *ngIf="selectedAgent?.config" class="text-surface-500 block mt-1">
+                    Agent supports up to: {{ selectedAgent.config.maxAutomationLevel.replace('_', ' ') }}
+                </small>
+            </div>
+
+            <!-- Wallet Address Display -->
+            <div class="field" *ngIf="walletAddress">
+                <label class="block text-sm font-medium mb-2">Connected Wallet</label>
+                <div class="p-3 bg-surface-100 dark:bg-surface-800 rounded-lg">
+                    <div class="text-sm font-mono">
+                        {{ walletAddress.substring(0, 6) }}...{{ walletAddress.substring(walletAddress.length - 4) }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-2">
+                <!-- Subscribe/Update Button -->
+                <p-button 
+                    [label]="subscribing ? (isSubscribed ? 'Updating...' : 'Subscribing...') : (isSubscribed ? 'Update Subscription' : 'Subscribe to Agent')" 
+                    [icon]="subscribing ? 'pi pi-spinner pi-spin' : (isSubscribed ? 'pi pi-pencil' : 'pi pi-check')"
+                    type="submit"
+                    class="w-full"
+                    [loading]="subscribing"
+                    [disabled]="subscriptionForm.invalid || subscribing || unsubscribing || !walletAddress || (isSubscribed && !formChanged)">
+                </p-button>
+
+                <!-- Unsubscribe Button -->
+                <p-button 
+                    *ngIf="isSubscribed"
+                    label="Unsubscribe" 
+                    icon="pi pi-times"
+                    severity="danger"
+                    [outlined]="true"
+                    type="button"
+                    class="w-full"
+                    [loading]="unsubscribing"
+                    [disabled]="subscribing || unsubscribing"
+                    (click)="unsubscribeFromAgent()">
+                </p-button>
+            </div>
+
+            <div class="text-xs text-surface-500 mt-2">
+                {{ isSubscribed 
+                    ? 'Changes will update your existing subscription settings.' 
+                    : 'By subscribing, you authorize this agent to trade within your specified limits.' }}
+            </div>
         </form>
     </div>
 </div>
