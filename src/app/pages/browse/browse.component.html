@@ -1,61 +1,57 @@
 <div class="flex flex-col">
-    <div class="card">
-        <!-- Header -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-surface-900 dark:text-surface-0 mb-2">
-                Agent Catalog
-            </h1>
-            <p class="text-surface-600 dark:text-surface-400">
-                Select an agent to explore its Performance
-            </p>
-        </div>
+  <div class="card">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-surface-900 dark:text-surface-0 mb-2">
+        Agent Catalog
+      </h1>
+      <p class="text-surface-600 dark:text-surface-400">
+        Select an agent to explore its Performance
+      </p>
+    </div>
 
-        <!-- Navigation Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            <div 
-                *ngFor="let card of agentCards; trackBy: trackByCardId"
+    <!-- Navigation Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      @for (card of agentCards; track trackByCardId($index, card)) {
+        <div
                 class="group relative overflow-hidden rounded-xl border border-surface-200 dark:border-surface-700 
                        bg-white dark:bg-surface-800 hover:border-surface-300 dark:hover:border-surface-600
                        cursor-pointer transition-all duration-300 ease-in-out
                        hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/20
                        hover:-translate-y-1 active:scale-[0.98]"
-                (click)="goToExplore(card.id)"
-                (mouseenter)="onCardHover(card, true)"
-                (mouseleave)="onCardHover(card, false)">
-                
-                <!-- Card Content -->
-                <div class="relative p-6 h-full flex flex-col">
-                    <!-- Icon Section -->
-                    <div class="flex items-center justify-between mb-4">
-                        
-                        <!-- Arrow Icon -->
-                        <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            <i class="pi pi-arrow-right text-surface-400 dark:text-surface-500 text-lg"></i>
-                        </div>
-                    </div>
-
-                    <!-- Content Section -->
-                    <div class="flex-1">
+          (click)="goToExplore(card.id)"
+          (mouseenter)="onCardHover(card, true)"
+          (mouseleave)="onCardHover(card, false)">
+          <!-- Card Content -->
+          <div class="relative p-6 h-full flex flex-col">
+            <!-- Icon Section -->
+            <div class="flex items-center justify-between mb-4">
+              <!-- Arrow Icon -->
+              <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <i class="pi pi-arrow-right text-surface-400 dark:text-surface-500 text-lg"></i>
+              </div>
+            </div>
+            <!-- Content Section -->
+            <div class="flex-1">
                         <h3 class="text-xl font-semibold text-surface-900 dark:text-surface-0 mb-2 
                                    group-hover:text-surface-700 dark:group-hover:text-surface-200 transition-colors">
-                            {{ card.name }}
-                        </h3>
-                        <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">
-                            {{ card.strategy }}
-                        </p>
-                    </div>
-
-                    <!-- Bottom Accent -->
+                {{ card.name }}
+              </h3>
+              <p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">
+                {{ card.strategy }}
+              </p>
+            </div>
+            <!-- Bottom Accent -->
                     <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r 
                                 opacity-0 group-hover:opacity-100 transition-opacity duration-300 from-orange-500 to-orange-600">
-                    </div>
-                </div>
-
-                <!-- Hover Overlay Effect -->
+            </div>
+          </div>
+          <!-- Hover Overlay Effect -->
                 <div class="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-5 
                             transition-opacity duration-300 pointer-events-none from-orange-500 to-orange-600">
-                </div>
-            </div>
+          </div>
         </div>
+      }
     </div>
+  </div>
 </div>

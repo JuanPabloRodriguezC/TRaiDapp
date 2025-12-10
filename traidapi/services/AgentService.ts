@@ -1,5 +1,4 @@
 import { Pool } from 'pg';
-import { TradingAgent } from './TradingAgent';
 import { ContractService } from './ContractService';
 import { PredictionService } from './PredictionService';
 import { MarketDataService } from './MarketDataService';
@@ -11,7 +10,6 @@ import fs from 'fs';
 
 
 export class AgentService {
-  private agents = new Map<string, TradingAgent>();
   private compiledContract = json.parse(fs.readFileSync('./services/abi.json').toString('ascii'));
   private contractCallData: CallData = {} as CallData;
 
@@ -576,35 +574,6 @@ export class AgentService {
   }
 
   // ============================================================================
-  // AGENT EXECUTION (Existing functionality)
-  // ============================================================================ 
-  async runAgent(userId: string, agentId: string, marketContext: MarketContext): Promise<TradingDecision> {
-    // Verify user is subscribed
-    const subscription = await this.db.query(`
-      SELECT * FROM user_subscriptions 
-      WHERE user_id = $1 AND agent_id = $2 AND is_active = true
-    `, [userId, agentId]);
-
-    if (subscription.rows.length === 0) {
-      throw new Error(`User ${userId} is not subscribed to agent ${agentId}`);
-    }
-
-    const agentKey = `${userId}-${agentId}`;
-    let agent = this.agents.get(agentKey);
-    
-    if (!agent) {
-      const agentConfig = await this.loadAgentFromDB(agentId);
-      agent = new TradingAgent(agentConfig, this.predictionService, this.marketService);
-      this.agents.set(agentKey, agent);
-    }
-
-    const decision = await agent.makeDecision(marketContext);
-    await this.logDecision(userId, agentId, decision, marketContext);
-    
-    return decision;
-  }
-
-  // ============================================================================
   // HELPER METHODS
   // ============================================================================
 
@@ -672,39 +641,8 @@ export class AgentService {
     };
   }
 
-  private async loadAgentFromDB(agentId: string): Promise<AgentConfig> {
-    const result = await this.db.query(
-      'SELECT config FROM agents WHERE id = $1',
-      [agentId]
-    );
-
-    if (result.rows.length === 0) {
-      throw new Error(`Agent ${agentId} not found`);
-    }
-
-    return JSON.parse(result.rows[0].config);
-  }
-
   private encodeAutomationLevel(level: string): number {
     const levels = { manual: 0, alert_only: 1, semi_auto: 2, full_auto: 3 };
     return levels[level as keyof typeof levels] || 0;
-  }
-
-  private async logDecision(
-    userId: string, 
-    agentId: string, 
-    decision: TradingDecision, 
-    context: MarketContext
-  ): Promise<void> {
-    await this.db.query(`
-      INSERT INTO agent_decisions (
-        user_id, agent_id, token_symbol, token_address, action, amount, confidence,
-        reasoning, risk_assessment, market_context, executed, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, NOW())
-    `, [
-      userId, agentId, context.tokenSymbol, context.tokenAddress, 
-      decision.action, decision.amount, decision.confidence, 
-      decision.reasoning, decision.riskAssessment, JSON.stringify(context)
-    ]);
   }
 }

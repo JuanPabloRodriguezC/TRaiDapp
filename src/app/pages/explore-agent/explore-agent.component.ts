@@ -1,14 +1,14 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { switchMap } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { ChartModule } from 'primeng/chart';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
-import { DropdownModule } from 'primeng/dropdown';
+import { AutoCompleteModule } from 'primeng/autocomplete';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
@@ -35,11 +35,11 @@ interface Metric {
   imports: [
     CommonModule,
     ChartModule,
-    DropdownModule,
+    AutoCompleteModule,
     ButtonModule,
     InputNumberModule,
-    ReactiveFormsModule,
     FormsModule,
+    ReactiveFormsModule,
     InputTextModule,
     ToastModule,
     TooltipModule,
@@ -80,8 +80,8 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
   ];
   
   availableMetrics: Metric[] = [
-    { 
-      key: 'total_return_pct', 
+    {
+      key: 'total_return_pct',
       label: 'Total Return',
       unit: '%',
       currentValue: 0,
@@ -89,7 +89,7 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
       chartOptions: {} as any,
       loading: true
     },
-    { 
+    {
       key: 'sharpe_ratio',
       label: 'Sharpe Ratio',
       unit: '',
@@ -98,7 +98,7 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
       chartOptions: null,
       loading: true
     },
-    { 
+    {
       key: 'max_drawdown_pct',
       label: 'Max Drawdown',
       unit: '%',
@@ -107,7 +107,7 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
       chartOptions: null,
       loading: true
     },
-    { 
+    {
       key: 'win_rate_pct',
       label: 'Win Rate',
       unit: '%',
@@ -118,13 +118,13 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
     },
   ];
 
-  constructor(
-    private agentService: AgentService,
-    private walletService: WalletService,
-    private route: ActivatedRoute,
-    private fb: FormBuilder,
-    private messageService: MessageService
-  ) {
+  private agentService = inject(AgentService);
+  private walletService = inject(WalletService);
+  private route = inject(ActivatedRoute);
+  private fb = inject(FormBuilder);
+  private messageService = inject(MessageService);
+
+  constructor() {
     this.subscriptionForm = this.createSubscriptionForm();
   }
 

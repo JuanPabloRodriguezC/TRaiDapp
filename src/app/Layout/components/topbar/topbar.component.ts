@@ -4,7 +4,7 @@ import { MenuItem, MessageService } from 'primeng/api';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { StyleClassModule } from 'primeng/styleclass';
-import { DropdownModule } from 'primeng/dropdown';
+import { AutoCompleteModule } from 'primeng/autocomplete';
 import { DrawerModule } from 'primeng/drawer';
 import { MenuModule } from 'primeng/menu';
 import { DialogModule } from 'primeng/dialog';
@@ -39,7 +39,7 @@ interface TokenBalance {
   imports: [RouterModule,
             CommonModule,
             StyleClassModule,
-            DropdownModule,
+            AutoCompleteModule,
             FormsModule,
             DrawerModule,
             TagModule,
@@ -226,8 +226,7 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
     }
   }
 
-  onTokenChange(token: Token) {
-    this.selectedToken = token;
+  onTokenSelect(token: Token) {
     this.resetForm();
   }
 
