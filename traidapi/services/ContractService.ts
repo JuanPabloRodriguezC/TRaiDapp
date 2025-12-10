@@ -1,44 +1,47 @@
-import { Contract, RpcProvider, Account, CallData, num, json } from 'starknet';
-import { AgentConfig, ContractSubscription, UserTokenBalance } from '../types/agent';
+import { Contract, RpcProvider, Account, CallData, json } from 'starknet';
+import { AgentConfig, ContractSubscription } from '../types/agent';
 import fs from 'fs';
 
 export interface ContractConfig {
   contractAddress: string;
   rpcUrl: string;
-  account?: [string, string];
+  account: [string, string];
 }
 
 export class ContractService {
   private contract: Contract;
   private account: Account;
   private provider: RpcProvider;
-  private callData: CallData;
 
   constructor(config: ContractConfig) {
+
     this.provider = new RpcProvider({ 
-      nodeUrl: config.rpcUrl,
-      specVersion: "0.8.1"
+      nodeUrl: config.rpcUrl
     });
     
     const compiledContract = json.parse(fs.readFileSync('./services/abi.json').toString('ascii'));
-    this.contract = new Contract(
-      compiledContract,
-      config.contractAddress,
-      this.provider
-    );
+
+    this.account = new Account({
+        provider: this.provider,
+        address: config.account[0],
+        signer: config.account[1]
+    });
+    this.contract = new Contract({
+      abi: compiledContract,
+      address: config.contractAddress,
+      providerOrAccount: this.account
+    });
     
     if (!config.account) {
       throw new Error('Account information is required in config');
     }
-    this.account = new Account(this.provider, config.account[0], config.account[1], undefined, "0x3");
 
-    this.callData = new CallData(compiledContract);
+    
   }
-
   async createAgent(agentId: string, name:string, agentConfig: AgentConfig): Promise<string>{
     if (!this.account) throw new Error('Account required to create agent');
     
-    const callData = this.callData.compile('create_agent_config', 
+    const call = this.contract.populate('create_agent_config', 
       {
         agent_id: agentId,
         name,
@@ -52,11 +55,7 @@ export class ContractService {
       }
     );
 
-    const txHash = await this.account.execute({
-      contractAddress: this.contract.address,
-      entrypoint: 'create_agent_config',
-      calldata: callData,
-    });
+    const txHash = await this.contract['create_agent_config'](call.calldata);
     await this.provider.waitForTransaction(txHash.transaction_hash)
     return txHash.transaction_hash;
   }
@@ -100,30 +99,32 @@ export class ContractService {
 }
 
   async getUserSubscription(user: string, agentId: string): Promise<ContractSubscription> {
-    const callData = this.callData.compile('get_user_subscription', {user: user, agent_id: agentId});
-    const result = await this.contract.call('get_user_subscription', callData) as any;
+    try{
+      const user_subscription: ContractSubscription = await this.contract['get_user_subscription'](user,  agentId);
+      return user_subscription;
     
-    return result
+    } catch (error) {
+      throw new Error(`Failed to user subscription from contract: ${error}`);
+    }
   }
 
   async getUserTokenBalance(user: string, tokenAddress: string): Promise<string> {
     try {
-      const callData = this.callData.compile('get_user_token_balance', {
-        user: user,
-        token_address: tokenAddress
-      });
+      const token_balance = this.contract['get_user_token_balance'](user, tokenAddress);
       
-      const result = await this.contract.call('get_user_token_balance', callData);
-      return result.toString();
+      return token_balance.toString();
     } catch (error) {
       throw new Error(`Failed to get balance from contract: ${error}`);
     }
   }
 
   async canAgentTrade(user: string, agentId: string, amount: bigint): Promise<boolean> {
-    const callData = CallData.compile([user, agentId, amount]);
-    const result = await this.contract.call('can_agent_trade', callData) as any[];
-    return Boolean(result[0]);
+    try{
+      const result = await this.contract['can_agent_trade'](user, agentId, amount)
+      return Boolean(result[0]);
+    }catch (error) {
+      throw new Error(`Failed to get trading condition from contract: ${error}`);
+    }
   }
 
   async getDailyLimitsRemaining(user: string, agentId: string): Promise<{tradesRemaining: number, apiCostRemaining: bigint}> {

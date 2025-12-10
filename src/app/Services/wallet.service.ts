@@ -160,7 +160,11 @@ export class WalletService {
 
     try {
       const address = userAddress || this.walletAccount.address;
-      const erc20Contract = new Contract(ERC20_ABI, tokenAddress, this.provider);
+      const erc20Contract = new Contract({
+        abi: ERC20_ABI,
+        address: tokenAddress,
+        providerOrAccount: this.provider
+      });
       
       const balance = await erc20Contract['balanceOf'](address);
       return balance.toString();
@@ -178,7 +182,11 @@ export class WalletService {
 
     try {
       const owner = ownerAddress || this.walletAccount.address;
-      const erc20Contract = new Contract(ERC20_ABI, tokenAddress, this.provider);
+      const erc20Contract = new Contract({
+        abi: ERC20_ABI,
+        address: tokenAddress,
+        providerOrAccount: this.provider
+      });
       
       const allowance = await erc20Contract['allowance'](owner, spenderAddress);
       return allowance.toString();
@@ -228,20 +236,6 @@ export class WalletService {
       
     } catch (error) {
       console.error('Max token approval error:', error);
-      throw error;
-    }
-  }
-
-  async estimateGas(calls: any[]): Promise<string> {
-    if (!this.walletAccount) {
-      throw new Error('No account connected');
-    }
-
-    try {
-      const estimation = await this.walletAccount.estimateFee(calls);
-      return estimation.overall_fee.toString();
-    } catch (error) {
-      console.error('Gas estimation error:', error);
       throw error;
     }
   }
