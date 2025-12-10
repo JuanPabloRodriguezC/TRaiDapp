@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Router } from '@angular/router';
 import { AgentService } from '../../services/agent.service';
 import { AgentResponse } from '../../interfaces/responses';
@@ -8,7 +8,7 @@ import { AgentResponse } from '../../interfaces/responses';
 
 @Component({
   selector: 'app-browse',
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './browse.component.html',
   styleUrl: './browse.component.scss'
 })

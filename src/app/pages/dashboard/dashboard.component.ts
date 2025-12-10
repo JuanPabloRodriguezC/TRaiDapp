@@ -9,9 +9,8 @@ import { ChartModule } from 'primeng/chart';
 import { TableModule } from 'primeng/table';
 import { BadgeModule } from 'primeng/badge';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { OverlayPanelModule } from 'primeng/overlaypanel';
+import { PopoverModule, Popover } from 'primeng/popover';
 import { TooltipModule } from 'primeng/tooltip';
-import { OverlayPanel } from 'primeng/overlaypanel';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { AssetAllocationData, TransactionData } from '../../interfaces/graph';
 import { WalletService } from '../../services/wallet.service'
@@ -40,12 +39,12 @@ interface Chart {
     CommonModule,
     BadgeModule,
     RouterModule,
-    OverlayPanelModule,
+    PopoverModule,
     TooltipModule
   ]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  @ViewChild('configPanel') configPanel!: OverlayPanel;
+  @ViewChild('configPanel') configPanel!: Popover;
   
   private destroy$ = new Subject<void>();
   

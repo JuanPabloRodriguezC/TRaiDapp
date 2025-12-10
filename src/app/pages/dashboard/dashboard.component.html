@@ -180,7 +180,7 @@
     </div>
 
     <!-- Config Overlay Panel -->
-    <p-overlayPanel #configPanel [showCloseIcon]="true" [style]="{'width': '400px'}">
+    <p-popover #configPanel dismissable="true" [style]="{'width': '400px'}">
         <ng-template pTemplate="content">
             <div class="p-4">
                 <h4 class="text-lg font-semibold mb-4 text-surface-900">Agent Configuration</h4>
@@ -207,14 +207,14 @@
                             <p class="text-surface-900 font-medium">{{ selectedSubscription.userConfig.maxPositionSize || 'Not set' }}</p>
                         </div>
                     </div>
-                    <div class="border-t pt-3 mt-2" *ngIf="selectedSubscription.userConfig?.stopLossThreshold">
+                    <div class="border-t pt-3 mt-2" *ngIf="selectedSubscription.userConfig.stopLossThreshold">
                         <label class="text-sm font-medium text-surface-600">Stop Loss Threshold:</label>
                         <p class="text-surface-900 font-medium">{{ selectedSubscription.userConfig.stopLossThreshold }}%</p>
                     </div>
                 </div>
             </div>
         </ng-template>
-    </p-overlayPanel>
+    </p-popover>
 </p-fluid>
 
 <ng-template #walletNotConnected>
