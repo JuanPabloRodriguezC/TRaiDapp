@@ -2,8 +2,9 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { connect, disconnect } from '@starknet-io/get-starknet';
-import { WalletAccount, RpcProvider, Contract } from 'starknet';
+import { WalletAccount, RpcProvider, Contract, cairo, config, ETransactionVersion, logger } from 'starknet';
 import { WalletInfo } from '../interfaces/user';
+import { CONTRACT_ADDRESS, ERC20_ABI, TRAIDAPP_CONTRACT_ABI } from '../interfaces/contracts';
 
 
 @Injectable({
@@ -21,9 +22,28 @@ export class WalletService {
   public isConnected$ = this.connectionSubject.asObservable();
 
   constructor() {
+    logger.setLogLevel('WARN');
+    config.set('resourceBoundsOverhead', {
+      l1_gas: {
+        max_amount: 75,
+        max_price_per_unit: 60,
+      },
+      l2_gas: {
+        max_amount: 100,
+        max_price_per_unit: 60,
+      },
+      l1_data_gas: {
+        max_amount: 80,
+        max_price_per_unit: 70,
+      },
+    });
+    config.set('transactionVersion', ETransactionVersion.V3);
+    config.set('logLevel', 'INFO');
+
     this.provider = new RpcProvider({ 
       nodeUrl: 'http://127.0.0.1:5050/rpc'
-    });
+    }); 
+    
     
     // Check for existing connection on service initialization
     this.checkExistingConnection();
@@ -69,7 +89,6 @@ export class WalletService {
       // Setup event listeners
       this.setupEventListeners();
 
-      console.log('Wallet connected:', walletInfo);
       return walletInfo;
 
     } catch (error) {
@@ -201,41 +220,20 @@ export class WalletService {
     if (!this.walletAccount) {
       throw new Error('No account connected');
     }
-
+    
     try {
-      const result = await this.walletAccount.execute({
-        contractAddress: tokenAddress,
-        entrypoint: 'approve',
-        calldata: [spenderAddress, amount, '0'] // amount as u256 (low, high)
+      const contract = new Contract({
+        abi: ERC20_ABI,
+        address: tokenAddress,
+        providerOrAccount: this.walletAccount
       });
+
+      const result = await contract['approve'](spenderAddress, cairo.uint256(amount));
       
       return result.transaction_hash;
       
     } catch (error) {
       console.error('Token approval error:', error);
-      throw error;
-    }
-  }
-
-  async approveMaxToken(tokenAddress: string, spenderAddress: string): Promise<string> {
-    const MAX_UINT256_LOW = '0xffffffffffffffffffffffffffffffff';
-    const MAX_UINT256_HIGH = '0xffffffffffffffffffffffffffffffff';
-    
-    if (!this.walletAccount) {
-      throw new Error('No account connected');
-    }
-
-    try {
-      const result = await this.walletAccount.execute({
-        contractAddress: tokenAddress,
-        entrypoint: 'approve',
-        calldata: [spenderAddress, MAX_UINT256_LOW, MAX_UINT256_HIGH]
-      });
-      
-      return result.transaction_hash;
-      
-    } catch (error) {
-      console.error('Max token approval error:', error);
       throw error;
     }
   }
@@ -250,6 +248,26 @@ export class WalletService {
       return result.transaction_hash;
     } catch (error) {
       console.error('Transaction execution error:', error);
+      throw error;
+    }
+  }
+
+  async executeContractCall(function_name: string, calldata: any[]): Promise<any> {
+    if (!this.walletAccount) {
+      throw new Error('No account connected');
+    }
+
+    try {
+      const contract = new Contract({
+        abi: TRAIDAPP_CONTRACT_ABI,
+        address: CONTRACT_ADDRESS,
+        providerOrAccount: this.provider
+      });
+
+      const result = await contract[function_name](...calldata);
+      return result
+    } catch (error) {
+      console.error('Transaction call error:', error);
       throw error;
     }
   }
@@ -377,105 +395,3 @@ export class WalletService {
   }
 }
 
-const ERC20_ABI = [
-  {
-    "name": "balanceOf",
-    "type": "function",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "core::starknet::contract_address::ContractAddress"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::integer::u256"
-      }
-    ],
-    "state_mutability": "view"
-  },
-  {
-    "name": "allowance",
-    "type": "function",
-    "inputs": [
-      {
-        "name": "owner",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "spender",
-        "type": "core::starknet::contract_address::ContractAddress"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::integer::u256"
-      }
-    ],
-    "state_mutability": "view"
-  },
-  {
-    "name": "approve",
-    "type": "function",
-    "inputs": [
-      {
-        "name": "spender",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "amount",
-        "type": "core::integer::u256"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::bool"
-      }
-    ],
-    "state_mutability": "external"
-  },
-  {
-    "name": "transfer",
-    "type": "function",
-    "inputs": [
-      {
-        "name": "recipient",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "amount",
-        "type": "core::integer::u256"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::bool"
-      }
-    ],
-    "state_mutability": "external"
-  },
-  {
-    "name": "transferFrom",
-    "type": "function",
-    "inputs": [
-      {
-        "name": "sender",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "recipient",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "amount",
-        "type": "core::integer::u256"
-      }
-    ],
-    "outputs": [
-      {
-        "type": "core::bool"
-      }
-    ],
-    "state_mutability": "external"
-  }
-];
