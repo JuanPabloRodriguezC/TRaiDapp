@@ -143,7 +143,6 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
     this.walletSubscription = this.walletService.wallet$.subscribe(walletInfo => {
       this.walletAddress = walletInfo?.address || '';
       if (this.selectedAgent?.id) {
-        console.log("checking subscription status");
         this.checkSubscriptionStatus();
       }
     });
@@ -190,11 +189,11 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
       // Initialize with current subscription values
       const config = this.currentSubscription.userConfig;
       formValues = {
-        riskTolerance: Math.round(config.riskTolerance * 100),
+        riskTolerance: Math.round(config.riskTolerance / 100), // Contract stores percentage * 100
         maxTradesPerDay: config.maxTradesPerDay,
         maxApiCostPerDay: this.weiToEther(config.maxApiCostPerDay),
         maxPositionSize: this.weiToPercentage(config.maxPositionSize),
-        stopLossThreshold: Math.round(config.stopLossThreshold * 100),
+        stopLossThreshold: Math.round(config.stopLossThreshold / 100), // Contract stores percentage * 100
         automationLevel: config.automationLevel
       };
     } else if (this.selectedAgent?.config) {
@@ -233,6 +232,14 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
     this.formValueSubscription = this.subscriptionForm.valueChanges.subscribe(() => {
       this.formChanged = this.hasFormChanged();
     });
+  }
+
+  private setFormDisabledState(disabled: boolean): void {
+    if (disabled) {
+      this.subscriptionForm.disable();
+    } else {
+      this.subscriptionForm.enable();
+    }
   }
 
   private hasFormChanged(): boolean {
@@ -351,6 +358,7 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
     }
 
     this.subscribing = true;
+    this.setFormDisabledState(true);
     const formValue = this.subscriptionForm.value;
 
     // Convert form values to contract-compatible format
@@ -358,9 +366,9 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
       automationLevel: formValue.automationLevel,
       maxTradesPerDay: formValue.maxTradesPerDay,
       maxApiCostPerDay: this.etherToWei(formValue.maxApiCostPerDay.toString()),
-      riskTolerance: formValue.riskTolerance/100,
+      riskTolerance: formValue.riskTolerance * 100, // Contract expects percentage * 100
       maxPositionSize: this.etherToWei((formValue.maxPositionSize / 100).toString()),
-      stopLossThreshold: formValue.stopLossThreshold/100
+      stopLossThreshold: formValue.stopLossThreshold * 100 // Contract expects percentage * 100
     };
 
     const action = this.isSubscribed ? 'updateSubscription' : 'subscribeToAgent';
@@ -368,25 +376,27 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
     this.agentService[action](this.selectedAgent.id, userConfig).subscribe({
       next: (result) => {
         this.subscribing = false;
+        this.setFormDisabledState(false);
         const actionText = this.isSubscribed ? 'updated' : 'subscribed to';
         this.messageService.add({
           severity: 'success',
           summary: `Subscription ${this.isSubscribed ? 'Updated' : 'Successful'}`,
           detail: `Successfully ${actionText} ${this.selectedAgent.name}. Transaction: ${result.txHash.substring(0, 10)}...`
         });
-        
+
         // Refresh subscription status
         this.checkSubscriptionStatus();
       },
       error: (err) => {
         this.subscribing = false;
+        this.setFormDisabledState(false);
         console.error('Subscription operation failed:', err);
-        
+
         let errorMessage = `Subscription ${this.isSubscribed ? 'update' : ''} failed. Please try again.`;
         if (err.message) {
           errorMessage = err.message;
         }
-        
+
         this.messageService.add({
           severity: 'error',
           summary: `Subscription ${this.isSubscribed ? 'Update ' : ''}Failed`,
@@ -402,6 +412,7 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
     }
 
     this.unsubscribing = true;
+    this.setFormDisabledState(true);
     
     this.agentService.unsubscribeFromAgent(this.selectedAgent.id).subscribe({
       next: (result) => {
@@ -416,11 +427,13 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
         this.isSubscribed = false;
         this.currentSubscription = null;
         this.initializeForm();
+        this.setFormDisabledState(false);
       },
       error: (err) => {
         this.unsubscribing = false;
+        this.setFormDisabledState(false);
         console.error('Unsubscription failed:', err);
-        
+
         this.messageService.add({
           severity: 'error',
           summary: 'Unsubscription Failed',
@@ -480,7 +493,6 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (result) => {
         this.allMetricsData = result;
-        console.log('Historical data loaded:', this.allMetricsData);
         this.initCharts();
         this.loading = false;
         this.filterDataByMetric('total_return_pct');

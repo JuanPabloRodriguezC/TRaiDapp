@@ -515,8 +515,7 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             user: ContractAddress,
             agent_id: felt252
         ) -> UserSubscription {
-            let caller = get_caller_address();
-            assert(caller == user || caller == self.admin.read() || self.authorized_recorders.entry(caller).read(), 'caller not authorized');
+
             self.user_subscriptions.entry((user, agent_id)).read()
         }
 
@@ -525,8 +524,7 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             user: ContractAddress,
             token_address: ContractAddress
         ) -> UserBalance {
-            let caller = get_caller_address();
-            assert(caller == user || caller == self.admin.read() || self.authorized_recorders.entry(caller).read(), 'caller not authorized');
+
             self.user_balances.entry((user, token_address)).read()
         }
 
@@ -534,8 +532,6 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             self: @ContractState,
             user: ContractAddress
         ) -> Array<(ContractAddress, UserBalance)> {
-            let caller = get_caller_address();
-            assert(caller == user || caller == self.admin.read() || self.authorized_recorders.entry(caller).read(), 'caller not authorized');
             
             let mut balances = array![];
             for i in 0..self.token_addresses.len() {

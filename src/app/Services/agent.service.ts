@@ -2,13 +2,15 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, from, of, throwError } from 'rxjs';
-import { switchMap, catchError } from 'rxjs/operators';
+import { switchMap, catchError, map } from 'rxjs/operators';
 import { WalletService } from './wallet.service';
 import { PrepData } from '../interfaces/responses';
 import { AgentResponse } from '../interfaces/responses';
 import { Agent, AgentConfig } from '../interfaces/agent';
 import { Subscription as UserSubscription }  from '../interfaces/user';
 import { MetricData } from '../interfaces/graph';
+import { BigNumberish } from 'starknet';
+import { CONTRACT_ADDRESS } from '../interfaces/contracts';
 
 // Contract-compatible UserConfig interface
 interface ContractUserConfig {
@@ -58,15 +60,15 @@ export class AgentService {
   }
 
   depositForTrading(tokenAddress: string, amount: string): Observable<{success: boolean, txHash: string}> {
-    const contractAddress = '0x06c8a750c6b4798d169a750c66139f79f7e5ab7dc84f600d2136250414f791ab';
+    
     const userId = this.walletService.getConnectedAddress();
     
     if (!userId) {
       return throwError(() => new Error('Wallet not connected'));
     }
-
+    console.log('Starting deposit process for', { tokenAddress, amount });
     // Step 1: Check allowance and handle approval if needed
-    return from(this.walletService.checkAllowance(tokenAddress, contractAddress)).pipe(
+    return from(this.walletService.checkAllowance(tokenAddress, CONTRACT_ADDRESS)).pipe(
       switchMap(allowance => {
         const needsApproval = BigInt(allowance) < BigInt(amount);
 
@@ -74,28 +76,28 @@ export class AgentService {
           // Handle approval first
           return from(this.walletService.approveToken(
             tokenAddress,
-            contractAddress,
+            CONTRACT_ADDRESS,
             amount
           )).pipe(
             switchMap(approveTx => {``
-              console.log('✅ Approval submitted:', approveTx);
+              console.log('Approval submitted:', approveTx);
               // Wait for approval confirmation
               return from(this.walletService.waitForTransaction(approveTx));
             }),
             switchMap(() => {
-              console.log('✅ Approval confirmed, proceeding with deposit');
+              console.log('Approval confirmed, proceeding with deposit');
               // Proceed with deposit after approval
               return this.executeDepositTransaction(tokenAddress, amount);
             })
           );
         } else {
-          console.log('✅ Sufficient allowance, proceeding with deposit');
+          console.log('Sufficient allowance, proceeding with deposit');
           // Direct deposit
           return this.executeDepositTransaction(tokenAddress, amount);
         }
       }),
       catchError(error => {
-        console.error('❌ Deposit service error:', error);
+        console.error('Deposit service error:', error);
         
         // Provide more specific error messages
         let errorMessage = 'Deposit failed. Please try again.';
@@ -118,8 +120,8 @@ export class AgentService {
     );
   }
 
-  private executeDepositTransaction(tokenAddress: string, amount: string): Observable<{success: boolean, txHash: string}> {
-    console.log('🔄 Executing deposit transaction...');
+  private executeDepositTransaction(tokenAddress: string, amount: BigNumberish): Observable<{success: boolean, txHash: string}> {
+    console.log('Executing deposit transaction...');
     
     const payload = { tokenAddress, amount };
 
@@ -323,11 +325,11 @@ export class AgentService {
       return 'Max trades per day must be between 1 and 1000';
     }
 
-    if (userConfig.riskTolerance < 0 || userConfig.riskTolerance > 1) {
+    if (userConfig.riskTolerance < 0 || userConfig.riskTolerance > 10000) {
       return 'Risk tolerance must be between 0% and 100%';
     }
 
-    if (userConfig.stopLossThreshold < 0 || userConfig.stopLossThreshold > 1) {
+    if (userConfig.stopLossThreshold < 0 || userConfig.stopLossThreshold > 10000) {
       return 'Stop loss threshold must be between 0% and 100%';
     }
 
@@ -354,16 +356,63 @@ export class AgentService {
   }
 
   getUserSubscription(agentId: string, userAddress: string): Observable<UserSubscription | null> {
-    return this.http.get<UserSubscription>(`${this.apiUrl}/agents/${agentId}/subscription`, {
-      params: { userAddress }
-    }).pipe(
-      catchError((error) => {
-        if (error.status === 404) {
-          return of(null); // No subscription found
+    return from(
+      this.walletService.executeContractCall('get_user_subscription', [userAddress, agentId])
+    ).pipe(
+      map((result) => {
+      
+        if (!result || !result.is_authorized) {
+          return null;
         }
-        throw error;
+
+        const subscription: UserSubscription = {
+          agentId: this.convertFelt252ToNumber(result.agent_id),
+          isActive: result.is_authorized,
+          txHash: '',
+          subscribedAt: this.convertTimestampToDate(result.subscribed_at),
+          userConfig: {
+            automationLevel: this.convertAutomationLevel(result.user_config.automation_level),
+            maxTradesPerDay: Number(result.user_config.max_trades_per_day),
+            maxApiCostPerDay: result.user_config.max_api_cost_per_day.toString(),
+            riskTolerance: Number(result.user_config.risk_tolerance),
+            maxPositionSize: result.user_config.max_position_size.toString(),
+            stopLossThreshold: Number(result.user_config.stop_loss_threshold)
+          }
+        };
+
+        return subscription;
+      }),
+      catchError((error) => {
+        console.error('Error fetching subscription from blockchain:', error);
+        return of(null); // Return null on error to match existing pattern
       })
     );
+  }
+
+  /**
+   * Convert felt252 to number (for agent IDs)
+   */
+  private convertFelt252ToNumber(felt: any): number {
+    if (typeof felt === 'number') return felt;
+    if (typeof felt === 'string') return parseInt(felt, 16);
+    if (typeof felt === 'bigint') return Number(felt);
+    return 0;
+  }
+
+  /**
+   * Convert blockchain timestamp (u64) to ISO date string
+   */
+  private convertTimestampToDate(timestamp: any): string {
+    const timestampNum = typeof timestamp === 'bigint' ? Number(timestamp) : timestamp;
+    return new Date(timestampNum * 1000).toISOString();
+  }
+
+  /**
+   * Convert automation level from u8 to string format
+   */
+  private convertAutomationLevel(level: number): 'manual' | 'alert_only' | 'semi_auto' | 'full_auto' {
+    const levels = ['manual', 'alert_only', 'semi_auto', 'full_auto'] as const;
+    return levels[level] || 'manual';
   }
 
   getUserSubscriptions(): Observable<any[]> {
