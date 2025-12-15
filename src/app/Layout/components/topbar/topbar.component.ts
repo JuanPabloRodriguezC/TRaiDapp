@@ -3,6 +3,9 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { MenuItem, MessageService } from 'primeng/api';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Subject, takeUntil, lastValueFrom } from 'rxjs';
+import { BigNumberish } from 'starknet';
 import { StyleClassModule } from 'primeng/styleclass';
 import { AutoCompleteModule } from 'primeng/autocomplete';
 import { DrawerModule } from 'primeng/drawer';
@@ -13,8 +16,6 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { TagModule } from 'primeng/tag';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { ToastModule } from 'primeng/toast';
-import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil, lastValueFrom } from 'rxjs';
 import { WalletInfo } from '../../../interfaces/user';
 import { LayoutService } from '../../service/layout.service';
 import { WalletService } from '../../../services/wallet.service';
@@ -89,7 +90,8 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
       icon: 'pi pi-star'
     }
   ];
-  
+
+  filteredTokens: Token[] = [];
   tokenBalances: TokenBalance[] = [];
   contractAddress = '0x00a58481e3cc89a662f3ac8afe713c123e17d3a73650a9f19773ed9dd84bbe6a'; // Your contract address
   
@@ -226,8 +228,24 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
     }
   }
 
+  filterTokens(event: any) {
+    // For dropdown mode, we typically show all available tokens
+    // You could also filter based on event.query if you want search functionality
+    this.filteredTokens = this.availableTokens;
+    const query = event.query.toLowerCase();
+    if (query !== null) {
+      this.filteredTokens = this.availableTokens.filter(token => 
+        token.symbol.toLowerCase().includes(query) || 
+        token.name.toLowerCase().includes(query)
+     );
+    }
+    
+  }
+
   onTokenSelect(token: Token) {
-    this.resetForm();
+    console.log('Selected token:', token);
+    // Add your logic here for when a token is selected
+    // For example: load balance, update form, etc.
   }
 
   getSelectedTokenBalance(): TokenBalance | null {
@@ -306,7 +324,7 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
       });
 
     } catch (error: any) {
-      console.error('❌ Deposit failed:', error);
+      console.error('Deposit failed:', error);
       
       if (this.isUserRejectedError(error)) {
         this.showMessage('warn', 'Deposit Cancelled', 

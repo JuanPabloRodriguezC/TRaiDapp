@@ -103,12 +103,14 @@
     <div class="token-selector-section">
       <label class="input-label">Select Token</label>
       <p-autocomplete
-        [suggestions]="availableTokens"
+        [suggestions]="filteredTokens"
+        (completeMethod)="filterTokens($event)"
         [dropdown]="true"
         [(ngModel)]="selectedToken"
         optionLabel="symbol"
         placeholder="Select a token"
         (ngModelChange)="onTokenSelect($event)">
+        
         <ng-template pTemplate="selectedItem">
           @if (selectedToken) {
             <div class="token-item">
@@ -120,6 +122,7 @@
             </div>
           }
         </ng-template>
+        
         <ng-template let-token pTemplate="item">
           <div class="token-item">
             @if (token.icon) {
@@ -130,6 +133,7 @@
           </div>
         </ng-template>
       </p-autocomplete>
+
     </div>
 
     <!-- Balance Display -->

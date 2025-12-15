@@ -2,22 +2,24 @@
 <div class="flex flex-col gap-6">
   <!-- Agent Description - Mobile First -->
   <div class="card md:hidden">
-    <div class="font-semibold text-lg mb-3 flex items-center justify-between">
-      About This Agent
-      @if (isSubscribed) {
-        <p-tag
-          value="Subscribed"
-          severity="success"
-          [rounded]="true">
-        </p-tag>
-      }
-    </div>
-    <p class="text-surface-600 dark:text-surface-400 mb-3">
-      {{ selectedAgent.description || 'Advanced trading agent using momentum-based strategies...' }}
-    </p>
-    <div class="text-sm text-surface-500 dark:text-surface-500">
-      Created: {{ selectedAgent.created_at | date:'mediumDate' }}
-    </div>
+    @if (selectedAgent.config) {
+      <div class="font-semibold text-lg mb-3 flex items-center justify-between">
+        About This Agent
+        @if (isSubscribed) {
+          <p-tag
+            value="Subscribed"
+            severity="success"
+            [rounded]="true">
+          </p-tag>
+        }
+      </div>
+      <p class="text-surface-600 dark:text-surface-400 mb-3">
+        {{ selectedAgent.description || 'Advanced trading agent using momentum-based strategies...' }}
+      </p>
+      <div class="text-sm text-surface-500 dark:text-surface-500">
+        Created: {{ selectedAgent.created_at | date:'mediumDate' }}
+      </div>
+    }
     @if (isSubscribed && currentSubscription) {
       <div class="text-sm text-surface-500 dark:text-surface-500 mt-1">
         Subscribed: {{ currentSubscription.subscribedAt | date:'mediumDate' }}
@@ -131,7 +133,6 @@
               [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxRiskTolerance * 100) : 100"
               suffix="%"
               placeholder="5"
-              [disabled]="subscribing || unsubscribing"
               [class]="'w-full ' + (isFieldInvalid('riskTolerance') ? 'ng-invalid ng-dirty' : '')">
             </p-inputNumber>
             @if (isFieldInvalid('riskTolerance')) {
@@ -156,7 +157,6 @@
               [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxPositionSize * 100) : 100"
               suffix="%"
               placeholder="10"
-              [disabled]="subscribing || unsubscribing"
               [class]="'w-full ' + (isFieldInvalid('maxPositionSize') ? 'ng-invalid ng-dirty' : '')">
             </p-inputNumber>
             @if (isFieldInvalid('maxPositionSize')) {
@@ -180,7 +180,6 @@
               [min]="1"
               [max]="selectedAgent.config ? selectedAgent.config.maxTradesPerDay : 1000"
               placeholder="10"
-              [disabled]="subscribing || unsubscribing"
               [class]="'w-full ' + (isFieldInvalid('maxTradesPerDay') ? 'ng-invalid ng-dirty' : '')">
             </p-inputNumber>
             @if (isFieldInvalid('maxTradesPerDay')) {
@@ -205,7 +204,6 @@
               [max]="50"
               suffix="%"
               placeholder="5"
-              [disabled]="subscribing || unsubscribing"
               [class]="'w-full ' + (isFieldInvalid('stopLossThreshold') ? 'ng-invalid ng-dirty' : '')">
             </p-inputNumber>
             @if (isFieldInvalid('stopLossThreshold')) {
@@ -231,7 +229,6 @@
               [minFractionDigits]="3"
               [maxFractionDigits]="6"
               placeholder="0.01"
-              [disabled]="subscribing || unsubscribing"
               [class]="'w-full ' + (isFieldInvalid('maxApiCostPerDay') ? 'ng-invalid ng-dirty' : '')">
             </p-inputNumber>
             @if (isFieldInvalid('maxApiCostPerDay')) {
@@ -256,7 +253,6 @@
               optionLabel="label"
               optionValue="value"
               placeholder="Select Automation"
-              [disabled]="subscribing || unsubscribing"
               [class]="'w-full ' + (isFieldInvalid('automationLevel') ? 'ng-invalid ng-dirty' : '')">
               <ng-template pTemplate="selectedItem" let-item>
                 @if (item) {
@@ -342,29 +338,30 @@
         </p-tag>
       }
     </div>
-    <div class="grid md:grid-cols-2 gap-6">
-      <div>
-        <p class="text-surface-600 dark:text-surface-400 mb-4">
-          {{ selectedAgent.description || 'Advanced trading agent using momentum-based strategies with risk management protocols...' }}
-        </p>
-        <div class="space-y-2 text-sm">
-          <div class="flex justify-between">
-            <span class="text-surface-500">Strategy:</span>
-            <span class="font-medium">{{ selectedAgent ? selectedAgent.config.strategy : null }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-surface-500">Created:</span>
-            <span class="font-medium">{{ selectedAgent.created_at | date:'mediumDate' }}</span>
-          </div>
-          @if (isSubscribed && currentSubscription) {
-            <div class="flex justify-between">
-              <span class="text-surface-500">Subscribed:</span>
-              <span class="font-medium">{{ currentSubscription.subscribedAt | date:'mediumDate' }}</span>
-            </div>
-          }
-        </div>
-      </div>
       @if (selectedAgent.config) {
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-surface-600 dark:text-surface-400 mb-4">
+            {{ selectedAgent.description || 'Advanced trading agent using momentum-based strategies with risk management protocols...' }}
+          </p>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-surface-500">Strategy:</span>
+              <span class="font-medium">{{ selectedAgent ? selectedAgent.config.strategy : null }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-surface-500">Created:</span>
+              <span class="font-medium">{{ selectedAgent.created_at | date:'mediumDate' }}</span>
+            </div>
+            @if (isSubscribed && currentSubscription) {
+              <div class="flex justify-between">
+                <span class="text-surface-500">Subscribed:</span>
+                <span class="font-medium">{{ currentSubscription.subscribedAt | date:'mediumDate' }}</span>
+              </div>
+            }
+          </div>
+        </div>
+        
         <div class="space-y-2 text-sm">
           <div class="font-medium mb-2">Agent Capabilities</div>
           <div class="flex justify-between">
@@ -384,8 +381,9 @@
             <span class="font-medium">{{ selectedAgent.config.maxAutomationLevel.replace('_', ' ') }}</span>
           </div>
         </div>
-      }
-    </div>
+        
+      </div>
+    }
   </div>
 
   <!-- Mobile Subscription Form -->
@@ -413,7 +411,6 @@
           [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxRiskTolerance * 100) : 100"
           suffix="%"
           placeholder="5"
-          [disabled]="subscribing || unsubscribing"
           [class]="'w-full ' + (isFieldInvalid('riskTolerance') ? 'ng-invalid ng-dirty' : '')">
         </p-inputNumber>
         @if (isFieldInvalid('riskTolerance')) {
@@ -443,7 +440,6 @@
           [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxPositionSize * 100) : 100"
           suffix="%"
           placeholder="10"
-          [disabled]="subscribing || unsubscribing"
           [class]="'w-full ' + (isFieldInvalid('maxPositionSize') ? 'ng-invalid ng-dirty' : '')">
         </p-inputNumber>
         @if (isFieldInvalid('maxPositionSize')) {
@@ -472,7 +468,6 @@
           [min]="1"
           [max]="selectedAgent.config ? selectedAgent.config.maxTradesPerDay : 1000"
           placeholder="10"
-          [disabled]="subscribing || unsubscribing"
           [class]="'w-full ' + (isFieldInvalid('maxTradesPerDay') ? 'ng-invalid ng-dirty' : '')">
         </p-inputNumber>
         @if (isFieldInvalid('maxTradesPerDay')) {
@@ -502,7 +497,6 @@
           [max]="50"
           suffix="%"
           placeholder="5"
-          [disabled]="subscribing || unsubscribing"
           [class]="'w-full ' + (isFieldInvalid('stopLossThreshold') ? 'ng-invalid ng-dirty' : '')">
         </p-inputNumber>
         @if (isFieldInvalid('stopLossThreshold')) {
@@ -533,7 +527,6 @@
           [minFractionDigits]="3"
           [maxFractionDigits]="6"
           placeholder="0.01"
-          [disabled]="subscribing || unsubscribing"
           [class]="'w-full ' + (isFieldInvalid('maxApiCostPerDay') ? 'ng-invalid ng-dirty' : '')">
         </p-inputNumber>
         @if (isFieldInvalid('maxApiCostPerDay')) {
@@ -563,7 +556,6 @@
           optionLabel="label"
           optionValue="value"
           placeholder="Select Automation"
-          [disabled]="subscribing || unsubscribing"
           [class]="'w-full ' + (isFieldInvalid('automationLevel') ? 'ng-invalid ng-dirty' : '')">
           <ng-template pTemplate="selectedItem" let-item>
             @if (item) {
@@ -626,7 +618,6 @@
             type="button"
             class="w-full"
             [loading]="unsubscribing"
-            [disabled]="subscribing || unsubscribing"
             (click)="unsubscribeFromAgent()">
           </p-button>
         }

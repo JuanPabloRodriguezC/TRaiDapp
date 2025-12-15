@@ -3,3 +3,18 @@
   height: auto;
   max-width: 100%;
 }
+
+.token-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.token-symbol {
+  font-weight: 600;
+}
+
+.token-name {
+  color: #6c757d;
+  font-size: 0.9em;
+}
