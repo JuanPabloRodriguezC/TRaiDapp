@@ -68,7 +68,7 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
         ) {
             assert(get_caller_address() == self.admin.read(), 'Only admin can create agents');
             assert(max_automation_level <= 3, 'Invalid automation level');
-            assert(max_risk_tolerance <= 100, 'Invalid risk tolerance');
+            assert(max_risk_tolerance <= 10000, 'Invalid risk tolerance');
             assert(min_stop_loss_threshold <= 10000, 'Invalid stop loss');
 
             let config = AgentConfig {
@@ -93,6 +93,29 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             assert(get_caller_address() == self.admin.read(), 'Only admin can add tokens');
 
             self.token_addresses.push(token_address);
+        }
+
+        // Platform withdraws accumulated fees
+        fn withdraw_platform_fees(
+            ref self: ContractState,
+            token_address: ContractAddress,
+            amount: u256
+        ) {
+            let caller: ContractAddress = get_caller_address();
+            let treasury = self.platform_treasury.read();
+            assert(caller == treasury, 'Only treasury can withdraw');
+            
+            let mut withdrawable = self.withdrawable_balances.entry((treasury, token_address)).read();
+            assert(withdrawable >= amount, 'Amount exceed amount available');
+            
+            withdrawable -= amount;
+            self.withdrawable_balances.entry((treasury, token_address)).write(withdrawable);
+            
+            // Execute transfer
+            let token = IERC20Dispatcher { contract_address: token_address };
+            token.transfer(treasury, amount);
+            
+            self.emit(PlatformFeesWithdrawn { token_address, amount });
         }
 
         fn subscribe_to_agent(
@@ -154,7 +177,29 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
                 agent_id,
             });
         }
-        
+
+        fn update_subscription(
+            ref self: ContractState,
+            agent_id: felt252,
+            user_config: UserConfig
+        ) {
+            let user = get_caller_address();
+            let mut subscription = self.user_subscriptions.entry((user, agent_id)).read();
+            
+            assert(subscription.is_authorized, 'User not subscribed to agent');
+            
+            // Verify agent still exists and validate new config
+            let agent_config = self.agent_configs.entry(agent_id).read();
+            assert(agent_config.is_active, 'Agent not active');
+            assert(user_config.max_trades_per_day <= agent_config.max_trades_per_day, 'Exceeds agent trade limit');
+            assert(user_config.max_position_size <= agent_config.max_position_size, 'Exceeds agent position limit');
+            assert(user_config.automation_level <= agent_config.max_automation_level, 'Exceeds agent automation level');
+            assert(user_config.risk_tolerance <= agent_config.max_risk_tolerance, 'Exceeds agent risk tolerance');
+            assert(user_config.stop_loss_threshold >= agent_config.min_stop_loss_threshold, 'Below agent min stop loss');
+            
+            subscription.user_config = user_config;
+            self.user_subscriptions.entry((user, agent_id)).write(subscription);
+        }
 
         fn authorize_agent_trading(
             ref self: ContractState,
@@ -348,6 +393,37 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             });
         }
 
+        fn settle_trade_with_fees(
+            ref self: ContractState,
+            user: ContractAddress,
+            agent_id: felt252,
+            profit_amount: u256,
+            token_address: ContractAddress
+        ) {
+            // Calculate platform fee (e.g., 2.5% of profit)
+            let platform_fee: u256 = (profit_amount * self.platform_fee_rate.read()) / 10000;
+            let user_share: u256 = profit_amount - platform_fee;
+            
+            // Allocate to withdrawable balances (don't send immediately)
+            let treasury = self.platform_treasury.read();
+            let mut treasury_balance = self.withdrawable_balances.entry((treasury, token_address)).read();
+            treasury_balance += platform_fee;
+            self.withdrawable_balances.entry((treasury, token_address)).write(treasury_balance);
+            
+            // Update user balance
+            let mut user_balance = self.user_balances.entry((user, token_address)).read();
+            user_balance.total_balance += user_share;
+            user_balance.available_balance += user_share;
+            self.user_balances.entry((user, token_address)).write(user_balance);
+            
+            self.emit(FeesAllocated { 
+                user, 
+                platform_fee, 
+                user_share, 
+                token_address 
+            });
+        }
+
         fn record_agent_decision(
             ref self: ContractState,
             agent_id: felt252,
@@ -478,6 +554,13 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             true
         }
 
+        fn get_agent_config(
+            self: @ContractState,
+            agent_id: felt252
+        ) -> AgentConfig {
+            self.agent_configs.entry(agent_id).read()
+        }
+
         fn get_available_balance_for_agent(
             self: @ContractState,
             user: ContractAddress,
@@ -510,6 +593,13 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             (trades_remaining, api_cost_remaining)
         }
 
+        fn get_agent_performance(
+            self: @ContractState,
+            agent_id: felt252
+        ) -> AgentPerformance {
+            self.agent_performance.entry(agent_id).read()
+        }
+
         fn get_user_subscription(
             self: @ContractState,
             user: ContractAddress,
@@ -540,91 +630,6 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
                 balances.append((token_address, balance));
             }
             balances
-        }
-
-        fn get_agent_performance(
-            self: @ContractState,
-            agent_id: felt252
-        ) -> AgentPerformance {
-            self.agent_performance.entry(agent_id).read()
-        }
-
-        fn update_subscription(
-            ref self: ContractState,
-            agent_id: felt252,
-            user_config: UserConfig
-        ) {
-            let user = get_caller_address();
-            let mut subscription = self.user_subscriptions.entry((user, agent_id)).read();
-            
-            assert(subscription.is_authorized, 'User not subscribed to agent');
-            
-            // Verify agent still exists and validate new config
-            let agent_config = self.agent_configs.entry(agent_id).read();
-            assert(agent_config.is_active, 'Agent not active');
-            assert(user_config.max_trades_per_day <= agent_config.max_trades_per_day, 'Exceeds agent trade limit');
-            assert(user_config.max_position_size <= agent_config.max_position_size, 'Exceeds agent position limit');
-            assert(user_config.automation_level <= agent_config.max_automation_level, 'Exceeds agent automation level');
-            assert(user_config.risk_tolerance <= agent_config.max_risk_tolerance, 'Exceeds agent risk tolerance');
-            assert(user_config.stop_loss_threshold >= agent_config.min_stop_loss_threshold, 'Below agent min stop loss');
-            
-            subscription.user_config = user_config;
-            self.user_subscriptions.entry((user, agent_id)).write(subscription);
-        }
-
-        // Calculate and allocate fees after successful trade
-        fn settle_trade_with_fees(
-            ref self: ContractState,
-            user: ContractAddress,
-            agent_id: felt252,
-            profit_amount: u256,
-            token_address: ContractAddress
-        ) {
-            // Calculate platform fee (e.g., 2.5% of profit)
-            let platform_fee: u256 = (profit_amount * self.platform_fee_rate.read()) / 10000;
-            let user_share: u256 = profit_amount - platform_fee;
-            
-            // Allocate to withdrawable balances (don't send immediately)
-            let treasury = self.platform_treasury.read();
-            let mut treasury_balance = self.withdrawable_balances.entry((treasury, token_address)).read();
-            treasury_balance += platform_fee;
-            self.withdrawable_balances.entry((treasury, token_address)).write(treasury_balance);
-            
-            // Update user balance
-            let mut user_balance = self.user_balances.entry((user, token_address)).read();
-            user_balance.total_balance += user_share;
-            user_balance.available_balance += user_share;
-            self.user_balances.entry((user, token_address)).write(user_balance);
-            
-            self.emit(FeesAllocated { 
-                user, 
-                platform_fee, 
-                user_share, 
-                token_address 
-            });
-        }
-
-        // Platform withdraws accumulated fees
-        fn withdraw_platform_fees(
-            ref self: ContractState,
-            token_address: ContractAddress,
-            amount: u256
-        ) {
-            let caller: ContractAddress = get_caller_address();
-            let treasury = self.platform_treasury.read();
-            assert(caller == treasury, 'Only treasury can withdraw');
-            
-            let mut withdrawable = self.withdrawable_balances.entry((treasury, token_address)).read();
-            assert(withdrawable >= amount, 'Amount exceed amount available');
-            
-            withdrawable -= amount;
-            self.withdrawable_balances.entry((treasury, token_address)).write(withdrawable);
-            
-            // Execute transfer
-            let token = IERC20Dispatcher { contract_address: token_address };
-            token.transfer(treasury, amount);
-            
-            self.emit(PlatformFeesWithdrawn { token_address, amount });
         }
     }
 }

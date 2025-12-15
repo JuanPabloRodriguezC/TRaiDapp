@@ -7,9 +7,9 @@ pub struct AgentConfig {
     pub max_automation_level: u8, // Maximum automation level this agent supports
     pub max_trades_per_day: u32,
     pub max_api_cost_per_day: u256, // in wei
-    pub max_risk_tolerance: u32, // 0-100, maximum risk this agent can handle
+    pub max_risk_tolerance: u32, // 0-10000 (percentage * 100, e.g., 1500 = 15%)
     pub max_position_size: u256, // in wei, maximum position size
-    pub min_stop_loss_threshold: u32, // minimum stop loss (percentage * 100)
+    pub min_stop_loss_threshold: u32, // 0-10000 (percentage * 100, e.g., 5000 = 50%)
     pub is_active: bool,
 }
 
@@ -17,10 +17,10 @@ pub struct AgentConfig {
 pub struct UserConfig {
     pub automation_level: u8, // User's preferred automation level (≤ agent's max)
     pub max_trades_per_day: u32, // User's daily trade limit (≤ agent's limit)
-    pub max_api_cost_per_day: u256, // User's daily API cost limit 
-    pub risk_tolerance: u32, // User's risk tolerance (≤ agent's max)
+    pub max_api_cost_per_day: u256, // User's daily API cost limit
+    pub risk_tolerance: u32, // 0-10000 (percentage * 100, e.g., 1500 = 15%)
     pub max_position_size: u256, // User's max position size (≤ agent's limit)
-    pub stop_loss_threshold: u32, // User's stop loss preference (≥ agent's min)
+    pub stop_loss_threshold: u32, // 0-10000 (percentage * 100, e.g., 5000 = 50%)
 }
 
 #[derive(Drop, Serde, starknet::Store)]

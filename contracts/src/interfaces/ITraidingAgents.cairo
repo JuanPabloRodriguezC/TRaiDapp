@@ -1,5 +1,5 @@
 use starknet::ContractAddress;
-use crate::utils::types::{ UserConfig, UserBalance, UserSubscription, AgentPerformance };
+use crate::utils::types::{ UserConfig, AgentConfig, UserBalance, UserSubscription, AgentPerformance };
 
 #[starknet::interface]
 pub trait IAgentManager<TContractState> {
@@ -21,6 +21,12 @@ pub trait IAgentManager<TContractState> {
         ref self: TContractState,
         token_address: ContractAddress
     );
+
+    fn withdraw_platform_fees(
+        ref self: TContractState,
+        token_address: ContractAddress,
+        amount: u256
+    ) -> ();
     
     fn subscribe_to_agent(
         ref self: TContractState,
@@ -85,6 +91,14 @@ pub trait IAgentManager<TContractState> {
         to_amount: u256
     );
     
+    fn settle_trade_with_fees(
+        ref self: TContractState,
+        user: ContractAddress,
+        agent_id: felt252,
+        profit_amount: u256,
+        token_address: ContractAddress
+    )-> ();
+
     // Decision Recording
     fn record_agent_decision(
         ref self: TContractState,
@@ -118,8 +132,39 @@ pub trait IAgentManager<TContractState> {
         was_successful: bool,
         confidence: u32
     );
-    
+
     // Query Functions
+    fn can_agent_trade(
+        self: @TContractState,
+        user: ContractAddress,
+        agent_id: felt252,
+        token_address: ContractAddress,
+        amount: u256
+    ) -> bool;
+    
+    fn get_agent_config(
+        self: @TContractState,
+        agent_id: felt252
+    ) -> AgentConfig;
+
+    fn get_available_balance_for_agent(
+        self: @TContractState,
+        user: ContractAddress,
+        agent_id: felt252,
+        token_address: ContractAddress
+    ) -> u256;
+
+    fn get_daily_limits_remaining(
+        self: @TContractState,
+        user: ContractAddress,
+        agent_id: felt252
+    ) -> (u32, u256);
+
+    fn get_agent_performance(
+        self: @TContractState,
+        agent_id: felt252
+    ) -> AgentPerformance;
+
     fn get_user_subscription(
         self: @TContractState,
         user: ContractAddress,
@@ -136,44 +181,4 @@ pub trait IAgentManager<TContractState> {
         self: @TContractState,
         user: ContractAddress
     ) -> Array<(ContractAddress, UserBalance)>;
-    
-    fn get_agent_performance(
-        self: @TContractState,
-        agent_id: felt252
-    ) -> AgentPerformance;
-    
-    fn can_agent_trade(
-        self: @TContractState,
-        user: ContractAddress,
-        agent_id: felt252,
-        token_address: ContractAddress,
-        amount: u256
-    ) -> bool;
-    
-    fn get_available_balance_for_agent(
-        self: @TContractState,
-        user: ContractAddress,
-        agent_id: felt252,
-        token_address: ContractAddress
-    ) -> u256;
-    
-    fn get_daily_limits_remaining(
-        self: @TContractState,
-        user: ContractAddress,
-        agent_id: felt252
-    ) -> (u32, u256);
-
-    fn settle_trade_with_fees(
-            ref self: TContractState,
-            user: ContractAddress,
-            agent_id: felt252,
-            profit_amount: u256,
-            token_address: ContractAddress
-    )-> ();
-
-    fn withdraw_platform_fees(
-        ref self: TContractState,
-        token_address: ContractAddress,
-        amount: u256
-    ) -> ();
 }
