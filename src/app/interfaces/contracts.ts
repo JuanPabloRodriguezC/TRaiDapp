@@ -168,6 +168,78 @@ export const TRAIDAPP_CONTRACT_ABI = [
   },
   {
     "type": "struct",
+    "name": "contracts::utils::types::AgentConfig",
+    "members": [
+      {
+        "name": "name",
+        "type": "core::felt252"
+      },
+      {
+        "name": "strategy",
+        "type": "core::felt252"
+      },
+      {
+        "name": "max_automation_level",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "max_trades_per_day",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "max_api_cost_per_day",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "max_risk_tolerance",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "max_position_size",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "min_stop_loss_threshold",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "is_active",
+        "type": "core::bool"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "contracts::utils::types::AgentPerformance",
+    "members": [
+      {
+        "name": "agent_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "total_decisions",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "successful_trades",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "total_pnl",
+        "type": "core::integer::i128"
+      },
+      {
+        "name": "avg_confidence",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "last_updated",
+        "type": "core::integer::u64"
+      }
+    ]
+  },
+  {
+    "type": "struct",
     "name": "contracts::utils::types::UserSubscription",
     "members": [
       {
@@ -215,36 +287,6 @@ export const TRAIDAPP_CONTRACT_ABI = [
       {
         "name": "available_balance",
         "type": "core::integer::u256"
-      },
-      {
-        "name": "last_updated",
-        "type": "core::integer::u64"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "contracts::utils::types::AgentPerformance",
-    "members": [
-      {
-        "name": "agent_id",
-        "type": "core::felt252"
-      },
-      {
-        "name": "total_decisions",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "successful_trades",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "total_pnl",
-        "type": "core::integer::i128"
-      },
-      {
-        "name": "avg_confidence",
-        "type": "core::integer::u32"
       },
       {
         "name": "last_updated",
@@ -307,6 +349,22 @@ export const TRAIDAPP_CONTRACT_ABI = [
           {
             "name": "token_address",
             "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "withdraw_platform_fees",
+        "inputs": [
+          {
+            "name": "token_address",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "amount",
+            "type": "core::integer::u256"
           }
         ],
         "outputs": [],
@@ -490,6 +548,30 @@ export const TRAIDAPP_CONTRACT_ABI = [
       },
       {
         "type": "function",
+        "name": "settle_trade_with_fees",
+        "inputs": [
+          {
+            "name": "user",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "agent_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "profit_amount",
+            "type": "core::integer::u256"
+          },
+          {
+            "name": "token_address",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
         "name": "record_agent_decision",
         "inputs": [
           {
@@ -586,6 +668,110 @@ export const TRAIDAPP_CONTRACT_ABI = [
       },
       {
         "type": "function",
+        "name": "can_agent_trade",
+        "inputs": [
+          {
+            "name": "user",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "agent_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "token_address",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "amount",
+            "type": "core::integer::u256"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::bool"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "get_agent_config",
+        "inputs": [
+          {
+            "name": "agent_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "contracts::utils::types::AgentConfig"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "get_available_balance_for_agent",
+        "inputs": [
+          {
+            "name": "user",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "agent_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "token_address",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "get_daily_limits_remaining",
+        "inputs": [
+          {
+            "name": "user",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "agent_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "(core::integer::u32, core::integer::u256)"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "get_agent_performance",
+        "inputs": [
+          {
+            "name": "agent_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "contracts::utils::types::AgentPerformance"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
         "name": "get_user_subscription",
         "inputs": [
           {
@@ -639,134 +825,6 @@ export const TRAIDAPP_CONTRACT_ABI = [
           }
         ],
         "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "get_agent_performance",
-        "inputs": [
-          {
-            "name": "agent_id",
-            "type": "core::felt252"
-          }
-        ],
-        "outputs": [
-          {
-            "type": "contracts::utils::types::AgentPerformance"
-          }
-        ],
-        "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "can_agent_trade",
-        "inputs": [
-          {
-            "name": "user",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "agent_id",
-            "type": "core::felt252"
-          },
-          {
-            "name": "token_address",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "amount",
-            "type": "core::integer::u256"
-          }
-        ],
-        "outputs": [
-          {
-            "type": "core::bool"
-          }
-        ],
-        "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "get_available_balance_for_agent",
-        "inputs": [
-          {
-            "name": "user",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "agent_id",
-            "type": "core::felt252"
-          },
-          {
-            "name": "token_address",
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "outputs": [
-          {
-            "type": "core::integer::u256"
-          }
-        ],
-        "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "get_daily_limits_remaining",
-        "inputs": [
-          {
-            "name": "user",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "agent_id",
-            "type": "core::felt252"
-          }
-        ],
-        "outputs": [
-          {
-            "type": "(core::integer::u32, core::integer::u256)"
-          }
-        ],
-        "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "settle_trade_with_fees",
-        "inputs": [
-          {
-            "name": "user",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "agent_id",
-            "type": "core::felt252"
-          },
-          {
-            "name": "profit_amount",
-            "type": "core::integer::u256"
-          },
-          {
-            "name": "token_address",
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "withdraw_platform_fees",
-        "inputs": [
-          {
-            "name": "token_address",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "amount",
-            "type": "core::integer::u256"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
       }
     ]
   },
@@ -1131,4 +1189,4 @@ export const TRAIDAPP_CONTRACT_ABI = [
   }
 ]
 
-export const CONTRACT_ADDRESS = '0x066108be3c0c90cd3a6796dfd70ba338a0452005680b17b18f1f4d7073c8fd7c'
+export const CONTRACT_ADDRESS = '0x026dc066d75b97ae9a511e6422d79eb7c640060acad438b3e8b0419a77304678'

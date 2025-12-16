@@ -594,22 +594,22 @@ export class AgentService {
       errors.push(`Max trades per day (${userConfig.maxTradesPerDay}) exceeds agent limit (${agentConfig.maxTradesPerDay})`);
     }
 
-    // Validate risk tolerance
-    if (userConfig.riskTolerance > agentConfig.maxRiskTolerance) {
-      errors.push(`Risk tolerance (${userConfig.riskTolerance}%) exceeds agent limit (${agentConfig.maxRiskTolerance * 100}%)`);
+    // Validate risk tolerance (values are in percentage * 100 format)
+    if (userConfig.riskTolerance > agentConfig.maxRiskTolerance * 100) {
+      errors.push(`Risk tolerance (${userConfig.riskTolerance / 100}%) exceeds agent limit (${agentConfig.maxRiskTolerance}%)`);
     }
 
-    // Validate stop loss
-    if (userConfig.stopLossThreshold < agentConfig.minStopLoss) {
-      errors.push(`Stop loss threshold (${userConfig.stopLossThreshold}%) is below agent minimum (${agentConfig.minStopLoss * 100}%)`);
+    // Validate stop loss (values are in percentage * 100 format)
+    if (userConfig.stopLossThreshold < agentConfig.minStopLoss * 100) {
+      errors.push(`Stop loss threshold (${userConfig.stopLossThreshold / 100}%) is below agent minimum (${agentConfig.minStopLoss}%)`);
     }
 
-    // Validate numeric ranges
-    if (userConfig.riskTolerance < 0 || userConfig.riskTolerance > 1) {
+    // Validate numeric ranges (values are in percentage * 100 format, so 0-10000)
+    if (userConfig.riskTolerance < 0 || userConfig.riskTolerance > 10000) {
       errors.push('Risk tolerance must be between 0% and 100%');
     }
 
-    if (userConfig.stopLossThreshold < 0 || userConfig.stopLossThreshold > 100) {
+    if (userConfig.stopLossThreshold < 0 || userConfig.stopLossThreshold > 10000) {
       errors.push('Stop loss threshold must be between 0% and 100%');
     }
 
@@ -635,9 +635,9 @@ export class AgentService {
       automation_level: this.encodeAutomationLevel(userConfig.automationLevel),
       max_trades_per_day: userConfig.maxTradesPerDay,
       max_api_cost_per_day: userConfig.maxApiCostPerDay,
-      risk_tolerance: Math.floor(userConfig.riskTolerance * 100), // Convert percentage to basis points
+      risk_tolerance: userConfig.riskTolerance, // Already in percentage * 100 format
       max_position_size: userConfig.maxPositionSize,
-      stop_loss_threshold: Math.floor(userConfig.stopLossThreshold * 10000), // Convert percentage to basis points
+      stop_loss_threshold: userConfig.stopLossThreshold, // Already in percentage * 100 format
     };
   }
 

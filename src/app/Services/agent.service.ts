@@ -374,7 +374,7 @@ export class AgentService {
             automationLevel: this.convertAutomationLevel(result.user_config.automation_level),
             maxTradesPerDay: Number(result.user_config.max_trades_per_day),
             maxApiCostPerDay: result.user_config.max_api_cost_per_day.toString(),
-            riskTolerance: Number(result.user_config.risk_tolerance),
+            riskTolerance: Number(result.user_config.risk_tolerance) / 100,
             maxPositionSize: result.user_config.max_position_size.toString(),
             stopLossThreshold: Number(result.user_config.stop_loss_threshold)
           }

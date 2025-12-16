@@ -1,4 +1,4 @@
-import { Contract, RpcProvider, Account, CallData, json } from 'starknet';
+import { Contract, RpcProvider, Account, CallData, json, config, logger } from 'starknet';
 import { AgentConfig, ContractSubscription } from '../types/agent';
 import fs from 'fs';
 
@@ -13,26 +13,40 @@ export class ContractService {
   private account: Account;
   private provider: RpcProvider;
 
-  constructor(config: ContractConfig) {
-
+  constructor(contractConfig: ContractConfig) {
+    logger.setLogLevel('WARN');
+    config.set('resourceBoundsOverhead', {
+    l1_gas: {
+      max_amount: 75,
+      max_price_per_unit: 60,
+    },
+    l2_gas: {
+      max_amount: 100,
+      max_price_per_unit: 60,
+    },
+    l1_data_gas: {
+      max_amount: 80,
+      max_price_per_unit: 70,
+    },
+  });
     this.provider = new RpcProvider({ 
-      nodeUrl: config.rpcUrl
+      nodeUrl: contractConfig.rpcUrl
     });
     
     const compiledContract = json.parse(fs.readFileSync('./services/abi.json').toString('ascii'));
 
     this.account = new Account({
         provider: this.provider,
-        address: config.account[0],
-        signer: config.account[1]
+        address: contractConfig.account[0],
+        signer: contractConfig.account[1]
     });
     this.contract = new Contract({
       abi: compiledContract,
-      address: config.contractAddress,
+      address: contractConfig.contractAddress,
       providerOrAccount: this.account
     });
     
-    if (!config.account) {
+    if (!contractConfig.account) {
       throw new Error('Account information is required in config');
     }
 
@@ -41,7 +55,7 @@ export class ContractService {
   async createAgent(agentId: string, name:string, agentConfig: AgentConfig): Promise<string>{
     if (!this.account) throw new Error('Account required to create agent');
     
-    const call = this.contract.populate('create_agent_config', 
+    const call = this.contract.populate('create_agent_config',
       {
         agent_id: agentId,
         name,
@@ -49,9 +63,9 @@ export class ContractService {
         max_automation_level: this.encodeAutomationLevel(agentConfig.maxAutomationLevel),
         max_trades_per_day: agentConfig.maxTradesPerDay,
         max_api_cost_per_day: agentConfig.maxApiCostPerDay,
-        max_risk_tolerance: Math.floor(agentConfig.maxRiskTolerance * 100),
+        max_risk_tolerance: Math.floor(agentConfig.maxRiskTolerance * 100), // DB: 0-100 -> Contract: 0-10000
         max_position_size: agentConfig.maxPositionSize.toString(),
-        min_stop_loss_threshold: Math.floor(agentConfig.minStopLoss * 10000),
+        min_stop_loss_threshold: Math.floor(agentConfig.minStopLoss * 100), // DB: 0-100 -> Contract: 0-10000
       }
     );
 

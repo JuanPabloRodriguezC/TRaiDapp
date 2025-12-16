@@ -200,11 +200,11 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
       // Initialize with agent's minimum/safe values
       const agentConfig = this.selectedAgent.config;
       formValues = {
-        riskTolerance: Math.min(5, Math.round(agentConfig.maxRiskTolerance * 100)),
+        riskTolerance: Math.min(5, Math.round(agentConfig.maxRiskTolerance)),
         maxTradesPerDay: Math.min(10, agentConfig.maxTradesPerDay),
         maxApiCostPerDay: Math.min(0.01, agentConfig.maxApiCostPerDay),
-        maxPositionSize: Math.min(10, Math.round(agentConfig.maxPositionSize * 100)),
-        stopLossThreshold: Math.max(5, Math.round(agentConfig.minStopLoss * 100)),
+        maxPositionSize: Math.min(10, Math.round(agentConfig.maxPositionSize)),
+        stopLossThreshold: Math.max(5, Math.round(agentConfig.minStopLoss)),
         automationLevel: 'manual'
       };
     } else {
@@ -299,11 +299,11 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
       errors.push(`Max trades per day cannot exceed agent's limit of ${agentConfig.maxTradesPerDay}`);
     }
 
-    if (formValue.riskTolerance > Math.round(agentConfig.maxRiskTolerance * 100)) {
+    if (formValue.riskTolerance > Math.round(agentConfig.maxRiskTolerance)) {
       errors.push(`Risk tolerance cannot exceed agent's limit of ${Math.round(agentConfig.maxRiskTolerance * 100)}%`);
     }
 
-    if (formValue.stopLossThreshold < Math.round(agentConfig.minStopLoss * 100)) {
+    if (formValue.stopLossThreshold < Math.round(agentConfig.minStopLoss)) {
       errors.push(`Stop loss threshold must be at least ${Math.round(agentConfig.minStopLoss * 100)}%`);
     }
 

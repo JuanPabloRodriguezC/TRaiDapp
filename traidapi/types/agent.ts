@@ -31,10 +31,10 @@ export interface UserSubscription {
 export interface UserConfig {
   automationLevel: 'manual' | 'alert_only' | 'auto';
   maxTradesPerDay: number;
-  maxApiCostPerDay: string;
-  riskTolerance: number;
-  maxPositionSize: string;
-  stopLossThreshold: number;
+  maxApiCostPerDay: string; // Wei amount as string
+  riskTolerance: number; // 0-10000 (percentage * 100, e.g., 1500 = 15%)
+  maxPositionSize: string; // Wei amount as string
+  stopLossThreshold: number; // 0-10000 (percentage * 100, e.g., 5000 = 50%)
 }
 
 export interface ContractUserConfig {
