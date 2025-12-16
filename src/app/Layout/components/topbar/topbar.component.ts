@@ -17,17 +17,11 @@ import { TagModule } from 'primeng/tag';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { ToastModule } from 'primeng/toast';
 import { WalletInfo } from '../../../interfaces/user';
+import { Token } from '../../../interfaces/token';
 import { LayoutService } from '../../service/layout.service';
 import { WalletService } from '../../../services/wallet.service';
 import { AgentService } from '../../../services/agent.service';
-
-interface Token {
-  symbol: string;
-  name: string;
-  address: string;
-  decimals: number;
-  icon?: string;
-}
+import { TokenConfigService } from '../../../services/token-config.service';
 
 interface TokenBalance {
   token: Token;
@@ -73,27 +67,10 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
   withdrawAmount: number = 0;
   selectedToken: Token | null = null;
   
-  // Token data
-  availableTokens: Token[] = [
-    {
-      symbol: 'ETH',
-      name: 'Ethereum',
-      address: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
-      decimals: 18,
-      icon: 'pi pi-ethereum'
-    },
-    {
-      symbol: 'STRK',
-      name: 'Starknet Token',
-      address: '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d',
-      decimals: 18,
-      icon: 'pi pi-star'
-    }
-  ];
-
+  // Token data - now from TokenConfigService
+  availableTokens: Token[] = [];
   filteredTokens: Token[] = [];
   tokenBalances: TokenBalance[] = [];
-  contractAddress = '0x00a58481e3cc89a662f3ac8afe713c123e17d3a73650a9f19773ed9dd84bbe6a'; // Your contract address
   
   walletMenuItems = [
     {
@@ -120,10 +97,14 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
     public layoutService: LayoutService,
     private walletService: WalletService,
     private agentService: AgentService,
+    private tokenConfig: TokenConfigService,
     private messageService: MessageService
   ) {}
 
   ngOnInit(): void {
+    // Load available tokens from TokenConfigService
+    this.availableTokens = this.tokenConfig.getAllTokens();
+    
     // Set default token
     this.selectedToken = this.availableTokens[0];
     
@@ -206,7 +187,9 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
         try {
           // Get wallet balance
           const walletBalance = await this.walletService.getBalance(token.address);
-          const formattedBalance = this.walletService.formatBalance(walletBalance, token.decimals);
+          
+          // Use TokenConfigService for formatting
+          const formattedBalance = this.tokenConfig.formatBalance(walletBalance, token.address);
 
           this.tokenBalances.push({
             token,
@@ -219,7 +202,7 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
           this.tokenBalances.push({
             token,
             balance: '0',
-            formattedBalance: '0.0000'
+            formattedBalance: '0'
           });
         }
       }
@@ -229,23 +212,24 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
   }
 
   filterTokens(event: any) {
-    // For dropdown mode, we typically show all available tokens
-    // You could also filter based on event.query if you want search functionality
-    this.filteredTokens = this.availableTokens;
     const query = event.query.toLowerCase();
-    if (query !== null) {
+    
+    if (!query) {
+      // Show all available tokens when no query
+      this.filteredTokens = this.availableTokens;
+    } else {
+      // Filter based on symbol or name
       this.filteredTokens = this.availableTokens.filter(token => 
         token.symbol.toLowerCase().includes(query) || 
         token.name.toLowerCase().includes(query)
-     );
+      );
     }
-    
   }
 
   onTokenSelect(token: Token) {
     console.log('Selected token:', token);
-    // Add your logic here for when a token is selected
-    // For example: load balance, update form, etc.
+    this.selectedToken = token;
+    // Optionally reload balances or update UI
   }
 
   getSelectedTokenBalance(): TokenBalance | null {
@@ -253,15 +237,36 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
     return this.tokenBalances.find(tb => tb.token.address === this.selectedToken!.address) || null;
   }
 
+  /**
+   * Get user balance as a number for the selected token
+   * Uses TokenConfigService for proper decimal handling
+   */
   get userBalance(): number {
     const tokenBalance = this.getSelectedTokenBalance();
     if (!tokenBalance) return 0;
     
     try {
-      return Number(tokenBalance.balance) / Math.pow(10, tokenBalance.token.decimals);
+      // Use TokenConfigService to format and convert to number
+      const formatted = this.tokenConfig.formatBalance(
+        tokenBalance.balance, 
+        tokenBalance.token.address
+      );
+      return parseFloat(formatted) || 0;
     } catch {
       return 0;
     }
+  }
+
+  /**
+   * Get formatted balance string with symbol for display
+   * Example: "1.5 ETH"
+   */
+  getFormattedBalanceWithSymbol(tokenAddress: string): string {
+    const tokenBalance = this.tokenBalances.find(tb => tb.token.address === tokenAddress);
+    if (!tokenBalance) return '0';
+    
+    const symbol = this.tokenConfig.getTokenSymbol(tokenAddress);
+    return `${tokenBalance.formattedBalance} ${symbol}`;
   }
 
   // ============================================================================
@@ -308,8 +313,11 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
     if (!this.selectedToken) return;
 
     try {
-      // Convert amount to wei
-      const amountWei = (amount * Math.pow(10, this.selectedToken.decimals)).toString();
+      // Use TokenConfigService to parse amount to raw balance (wei)
+      const amountWei = this.tokenConfig.parseBalance(
+        amount.toString(), 
+        this.selectedToken.address
+      );
 
       // Let the service handle the entire deposit flow (including approval check)
       const result = this.agentService.depositForTrading(
@@ -321,6 +329,9 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
         this.displayDepositDialog = false;
         this.showMessage('success', 'Deposit Successful', 
           `${amount} ${this.selectedToken?.symbol} deposited successfully. Transaction: ${this.formatTxHash(res.txHash)}`);
+        
+        // Refresh balances
+        this.loadTokenBalances();
       });
 
     } catch (error: any) {
@@ -448,6 +459,31 @@ export class AppTopbarComponent implements OnInit, OnDestroy {
         this.showMessage('error', 'Copy Failed', 'Failed to copy address');
       });
     }
+  }
+
+  // ============================================================================
+  // TOKEN DISPLAY HELPERS
+  // ============================================================================
+
+  /**
+   * Get token symbol for display
+   */
+  getTokenSymbol(address: string): string {
+    return this.tokenConfig.getTokenSymbol(address);
+  }
+
+  /**
+   * Get token name for display
+   */
+  getTokenName(address: string): string {
+    return this.tokenConfig.getTokenName(address);
+  }
+
+  /**
+   * Format a raw balance for display
+   */
+  formatTokenBalance(balance: string, address: string): string {
+    return this.tokenConfig.formatBalance(balance, address);
   }
 
   // ============================================================================

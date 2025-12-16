@@ -22,3 +22,10 @@ export interface Subscription{
   userConfig: ContractUserConfig;
 }
 
+export interface UserBalance{
+  tokenAddress: string; // Token contract address
+  totalBalance: string; // Wei amount as string
+  availableBalance: string; // Wei amount as string
+  lastUpdated: string;
+}
+
