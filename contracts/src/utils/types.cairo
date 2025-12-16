@@ -56,6 +56,7 @@ pub struct AgentPerformance {
     pub total_pnl: i128, // Using i128 as discussed
     pub avg_confidence: u32,
     pub last_updated: u64,
+    pub subscriptions_count: u32
 }
 
 #[derive(Drop, Serde, starknet::Store)]

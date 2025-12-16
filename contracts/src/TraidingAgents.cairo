@@ -150,6 +150,8 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             };
 
             self.user_subscriptions.entry((user, agent_id)).write(subscription);
+            let subscriptions_count = self.get_agent_performance(agent_id).subscriptions_count + 1;
+            self.agent_performance.entry(agent_id).subscriptions_count.write(subscriptions_count);
 
             self.emit(AgentSubscribed {
                 user,
@@ -171,6 +173,9 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             subscription.user_config.max_trades_per_day = 0;
             subscription.user_config.max_position_size = 0;
             self.user_subscriptions.entry((user, agent_id)).write(subscription);
+
+            let subscriptions_count = self.get_agent_performance(agent_id).subscriptions_count - 1;
+            self.agent_performance.entry(agent_id).subscriptions_count.write(subscriptions_count);
             
             self.emit(AgentUnsubscribed {
                 user,

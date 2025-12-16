@@ -50,8 +50,8 @@ const argv = yargs(hideBin(process.argv))
   .option('risk-tolerance', {
     alias: 'r',
     type: 'number',
-    describe: 'Risk tolerance (0.0 to 1.0)',
-    default: 0.5
+    describe: 'Risk tolerance percentage (0-100)',
+    default: 50
   })
   .option('max-position-size', {
     alias: 'p',
@@ -62,8 +62,8 @@ const argv = yargs(hideBin(process.argv))
   .option('stop-loss-threshold', {
     alias: 'l',
     type: 'number',
-    describe: 'Stop loss threshold (0.0 to 1.0)',
-    default: 0.05
+    describe: 'Stop loss threshold percentage (0-100)',
+    default: 5
   })
 
   .example('$0 --name "BTC Trader" --description "Bitcoin trading agent" --strategy "momentum" --automation-level "manual" --max-position-size "1000000000000000000"', 'Create a manual Bitcoin trading agent')
@@ -136,8 +136,8 @@ function validateMaxApiCostPerDay(cost) {
 }
 
 function validateRiskTolerance(risk) {
-  if (typeof risk !== 'number' || risk < 0 || risk > 1) {
-    throw new Error('Risk tolerance must be a number between 0.0 and 1.0');
+  if (typeof risk !== 'number' || risk < 0 || risk > 100) {
+    throw new Error('Risk tolerance must be a number between 0 and 100');
   }
   return true;
 }
@@ -158,8 +158,8 @@ function validateMaxPositionSize(size) {
 }
 
 function validateStopLossThreshold(threshold) {
-  if (typeof threshold !== 'number' || threshold < 0 || threshold > 1) {
-    throw new Error('Stop loss threshold must be a number between 0.0 and 1.0');
+  if (typeof threshold !== 'number' || threshold < 0 || threshold > 100) {
+    throw new Error('Stop loss threshold must be a number between 0 and 100');
   }
   return true;
 }
