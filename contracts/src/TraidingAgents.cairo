@@ -636,5 +636,18 @@ use starknet::{ ContractAddress, get_block_timestamp, get_caller_address };
             }
             balances
         }
+
+        fn get_user_subscriptions(
+            self: @ContractState,
+            user: ContractAddress
+        ) -> Array<(felt252, UserSubscription)> {
+            let mut subscriptions = array![];
+            for i in 0..self.agent_ids.len() {
+                let agent_id = self.agent_ids.at(i).read();
+                let subscription = self.user_subscriptions.entry((user, agent_id)).read();
+                subscriptions.append((agent_id, subscription));
+            }
+            subscriptions
+        }
     }
 }

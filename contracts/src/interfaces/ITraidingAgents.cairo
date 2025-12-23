@@ -181,4 +181,9 @@ pub trait IAgentManager<TContractState> {
         self: @TContractState,
         user: ContractAddress
     ) -> Array<(ContractAddress, UserBalance)>;
+
+    fn get_user_subscriptions(
+        self: @TContractState,
+        user: ContractAddress
+    ) -> Array<(felt252, UserSubscription)>;
 }
