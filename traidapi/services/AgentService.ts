@@ -29,18 +29,19 @@ export class AgentService {
   ): Promise<AgentCreationResult> {
     try {
       const agentId = (Date.now() * 1000 + Math.floor(Math.random() * 1000)).toString();
-      this.contractService.createAgent(agentId, name, agentConfig);
+      const txhash = await this.contractService.createAgent(agentId, name, agentConfig);
 
       await this.db.query(`
         INSERT INTO agents (
           id, name, description, config,
-          created_at, updated_at, is_active
-        ) VALUES ($1, $2, $3, $4, NOW(), NOW(), true)
+          created_at, updated_at, is_active, tx_hash
+        ) VALUES ($1, $2, $3, $4, NOW(), NOW(), true, $5)
       `, [
         agentId,
         name,
         description,
         JSON.stringify(agentConfig),
+        txhash
       ]);
 
       return { agentId, success: true };
