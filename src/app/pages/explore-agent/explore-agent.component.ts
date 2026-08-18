@@ -50,6 +50,7 @@ interface Metric {
   styleUrl: './explore-agent.component.scss'
 })
 export class ExploreAgentComponent implements OnInit, OnDestroy {
+  Math=Math;
   selectedAgent: Agent = {} as Agent;
   performanceData: any = {};
   allMetricsData: MetricData[] = [];
@@ -66,18 +67,19 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
   currentSubscription: UserSubscription | null = null;
   formChanged = false;
   initialFormValues: any = {};
-
-  Math = Math;
   
   private walletSubscription?: Subscription;
   private formValueSubscription?: Subscription;
 
+  
+
   automationLevels = [
     { label: 'Manual Only', value: 'manual', description: 'You make all trading decisions' },
     { label: 'Alert Only', value: 'alert_only', description: 'Agent sends alerts, you decide' },
-    { label: 'Semi Auto', value: 'semi_auto', description: 'Agent trades with your approval' },
-    { label: 'Full Auto', value: 'full_auto', description: 'Agent trades automatically within limits' }
+    { label: 'Automatic', value: 'auto', description: 'Agent trades with your approval' }
   ];
+
+  filteredAutomationLevels: typeof this.automationLevels = [];
   
   availableMetrics: Metric[] = [
     {
@@ -125,17 +127,13 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
   private messageService = inject(MessageService);
 
   constructor() {
-    this.subscriptionForm = this.createSubscriptionForm();
-  }
-
-  private createSubscriptionForm(): FormGroup {
-    return this.fb.group({
-      riskTolerance: [5, [Validators.required, Validators.min(1), Validators.max(100)]],
-      maxTradesPerDay: [10, [Validators.required, Validators.min(1), Validators.max(1000)]],
-      maxApiCostPerDay: [0.01, [Validators.required, Validators.min(0.001), Validators.max(10)]],
-      maxPositionSize: [10, [Validators.required, Validators.min(1), Validators.max(100)]],
-      stopLossThreshold: [5, [Validators.required, Validators.min(1), Validators.max(50)]],
-      automationLevel: ['manual', [Validators.required]],
+    this.subscriptionForm = this.fb.group({
+      riskTolerance: [null, [Validators.required, Validators.min(1), Validators.max(100)]],
+      maxTradesPerDay: [null, [Validators.required, Validators.min(1), Validators.max(1000000)]],
+      maxApiCostPerDay: [null, [Validators.required, Validators.min(0.001), Validators.max(100000)]],
+      maxPositionSize: [null, [Validators.required, Validators.min(1), Validators.max(100000000)]],
+      stopLossThreshold: [null, [Validators.required, Validators.min(1), Validators.max(50)]],
+      automationLevel: [null, [Validators.required]],
     });
   }
 
@@ -168,6 +166,7 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
             }else{
               this.isSubscribed = subscription.isActive;
             }
+            console.log('Subscription status:', this.isSubscribed, subscription);
             this.currentSubscription = subscription;
             this.initializeForm();
           },
@@ -189,22 +188,22 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
       // Initialize with current subscription values
       const config = this.currentSubscription.userConfig;
       formValues = {
-        riskTolerance: Math.round(config.riskTolerance / 100), // Contract stores percentage * 100
+        riskTolerance: Math.round(config.riskTolerance),
         maxTradesPerDay: config.maxTradesPerDay,
         maxApiCostPerDay: this.weiToEther(config.maxApiCostPerDay),
         maxPositionSize: this.weiToPercentage(config.maxPositionSize),
-        stopLossThreshold: Math.round(config.stopLossThreshold / 100), // Contract stores percentage * 100
+        stopLossThreshold: Math.round(config.stopLossThreshold),
         automationLevel: config.automationLevel
       };
     } else if (this.selectedAgent?.config) {
       // Initialize with agent's minimum/safe values
       const agentConfig = this.selectedAgent.config;
       formValues = {
-        riskTolerance: Math.min(5, Math.round(agentConfig.maxRiskTolerance)),
-        maxTradesPerDay: Math.min(10, agentConfig.maxTradesPerDay),
-        maxApiCostPerDay: Math.min(0.01, agentConfig.maxApiCostPerDay),
-        maxPositionSize: Math.min(10, Math.round(agentConfig.maxPositionSize)),
-        stopLossThreshold: Math.max(5, Math.round(agentConfig.minStopLoss)),
+        riskTolerance: Math.round(agentConfig.maxRiskTolerance),
+        maxTradesPerDay: agentConfig.maxTradesPerDay,
+        maxApiCostPerDay: agentConfig.maxApiCostPerDay,
+        maxPositionSize: Math.round(agentConfig.maxPositionSize),
+        stopLossThreshold: Math.round(agentConfig.minStopLoss),
         automationLevel: 'manual'
       };
     } else {
@@ -249,6 +248,21 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
     return Object.keys(this.initialFormValues).some(key => 
       this.initialFormValues[key] !== currentValues[key]
     );
+  }
+
+  filterAutomationLevels(event: any) {
+    const query = event.query.toLowerCase();
+
+    if (!query) {
+      // Show all automation levels when no query
+      this.filteredAutomationLevels = this.automationLevels;
+    } else {
+      // Filter based on label or description
+      this.filteredAutomationLevels = this.automationLevels.filter(level =>
+        level.label.toLowerCase().includes(query) ||
+        level.description.toLowerCase().includes(query)
+      );
+    }
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -300,15 +314,15 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
     }
 
     if (formValue.riskTolerance > Math.round(agentConfig.maxRiskTolerance)) {
-      errors.push(`Risk tolerance cannot exceed agent's limit of ${Math.round(agentConfig.maxRiskTolerance * 100)}%`);
+      errors.push(`Risk tolerance cannot exceed agent's limit of ${Math.round(agentConfig.maxRiskTolerance)}%`);
     }
 
     if (formValue.stopLossThreshold < Math.round(agentConfig.minStopLoss)) {
-      errors.push(`Stop loss threshold must be at least ${Math.round(agentConfig.minStopLoss * 100)}%`);
+      errors.push(`Stop loss threshold must be at least ${Math.round(agentConfig.minStopLoss)}%`);
     }
 
-    if (formValue.maxPositionSize > Math.round(agentConfig.maxPositionSize * 100)) {
-      errors.push(`Max position size cannot exceed agent's limit of ${Math.round(agentConfig.maxPositionSize * 100)}%`);
+    if (formValue.maxPositionSize > Math.round(agentConfig.maxPositionSize)) {
+      errors.push(`Max position size cannot exceed agent's limit of ${Math.round(agentConfig.maxPositionSize)}%`);
     }
 
     if (formValue.maxApiCostPerDay > agentConfig.maxApiCostPerDay) {
@@ -367,7 +381,7 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
       maxTradesPerDay: formValue.maxTradesPerDay,
       maxApiCostPerDay: this.etherToWei(formValue.maxApiCostPerDay.toString()),
       riskTolerance: formValue.riskTolerance * 100, // Contract expects percentage * 100
-      maxPositionSize: this.etherToWei((formValue.maxPositionSize / 100).toString()),
+      maxPositionSize: this.etherToWei((formValue.maxPositionSize).toString()),
       stopLossThreshold: formValue.stopLossThreshold * 100 // Contract expects percentage * 100
     };
 
@@ -487,6 +501,9 @@ export class ExploreAgentComponent implements OnInit, OnDestroy {
         // Check subscription status once we have the agent
         if (this.walletAddress) {
           this.checkSubscriptionStatus();
+        } else {
+          // Initialize form with agent config if no wallet connected
+          this.initializeForm();
         }
         return this.agentService.getGraphData(this.selectedAgent.id);
       })
