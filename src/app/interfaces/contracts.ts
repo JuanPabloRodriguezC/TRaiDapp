@@ -235,6 +235,10 @@ export const TRAIDAPP_CONTRACT_ABI = [
       {
         "name": "last_updated",
         "type": "core::integer::u64"
+      },
+      {
+        "name": "subscriptions_count",
+        "type": "core::integer::u32"
       }
     ]
   },
@@ -822,6 +826,22 @@ export const TRAIDAPP_CONTRACT_ABI = [
         "outputs": [
           {
             "type": "core::array::Array::<(core::starknet::contract_address::ContractAddress, contracts::utils::types::UserBalance)>"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "get_user_subscriptions",
+        "inputs": [
+          {
+            "name": "user",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<(core::felt252, contracts::utils::types::UserSubscription)>"
           }
         ],
         "state_mutability": "view"
