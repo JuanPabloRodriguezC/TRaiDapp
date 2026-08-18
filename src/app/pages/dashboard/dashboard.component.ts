@@ -12,10 +12,11 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { PopoverModule, Popover } from 'primeng/popover';
 import { TooltipModule } from 'primeng/tooltip';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { AssetAllocationData, TransactionData } from '../../interfaces/graph';
+import { TransactionData } from '../../interfaces/graph';
 import { WalletService } from '../../services/wallet.service'
 import { AgentService } from '../../services/agent.service';
-import { Subscription } from '../../interfaces/user';
+import { TokenConfigService } from '../../services/token-config.service';
+import { Subscription, UserBalance } from '../../interfaces/user';
 
 interface Chart {
   key: string;
@@ -88,6 +89,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private router: Router,
     private walletService: WalletService,
     private agentService: AgentService,
+    private tokenConfig: TokenConfigService,
     private cd: ChangeDetectorRef
   ) {}
 
@@ -164,14 +166,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  private processAllocationData(alloc: AssetAllocationData[]): void {
+  private processAllocationData(alloc: UserBalance[]): void {
     if (!alloc || alloc.length === 0) {
       this.allocationChart.chartData = {};
       return;
     }
 
-    const alloc_labels = alloc.map(d => d.symbol);
-    const alloc_data = alloc.map(d => d.balance);
+    const alloc_labels = alloc.map(d =>  this.tokenConfig.getTokenSymbol(d.tokenAddress));
+    console.log(alloc);
+    console.log('Allocation Labels:', alloc_labels);
+    const alloc_data = alloc.map(d => parseFloat(this.tokenConfig.formatBalance(d.availableBalance, d.tokenAddress)));
     const alloc_datasets: any[] = [
       {
         data: alloc_data,

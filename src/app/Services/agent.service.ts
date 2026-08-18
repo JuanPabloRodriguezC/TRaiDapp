@@ -7,7 +7,7 @@ import { WalletService } from './wallet.service';
 import { PrepData } from '../interfaces/responses';
 import { AgentResponse } from '../interfaces/responses';
 import { Agent, AgentConfig } from '../interfaces/agent';
-import { Subscription as UserSubscription }  from '../interfaces/user';
+import { UserBalance, Subscription as UserSubscription }  from '../interfaces/user';
 import { MetricData } from '../interfaces/graph';
 import { BigNumberish } from 'starknet';
 import { CONTRACT_ADDRESS } from '../interfaces/contracts';
@@ -376,7 +376,7 @@ export class AgentService {
             maxApiCostPerDay: result.user_config.max_api_cost_per_day.toString(),
             riskTolerance: Number(result.user_config.risk_tolerance) / 100,
             maxPositionSize: result.user_config.max_position_size.toString(),
-            stopLossThreshold: Number(result.user_config.stop_loss_threshold)
+            stopLossThreshold: Number(result.user_config.stop_loss_threshold) / 100
           }
         };
 
@@ -475,14 +475,34 @@ export class AgentService {
       .pipe(catchError(this.handleError));
   }
 
-  getUserBalances(): Observable<any[]> {
+  getUserBalances(): Observable<UserBalance[]> {
     const userId = this.walletService.getConnectedAddress();
 
-    if (!userId) {
-      return throwError(() => new Error('Wallet not connected'));
-    }
-    return this.http.get<any[]>(`${this.apiUrl}/agents/user/${userId}/balances`)
-      .pipe(catchError(this.handleError));
+    return from(
+      this.walletService.executeContractCall('get_user_balances', [userId])
+    ).pipe(
+      map((result) => {
+
+        if (!result || !Array.isArray(result)) {
+          return [];
+        }
+
+        return result.map(item => {
+          const tokenAddress = item[0];
+          const balanceData = item[1];
+          return {
+            tokenAddress: '0x' + tokenAddress.toString(16),
+            totalBalance: balanceData.total_balance.toString(),
+            availableBalance: balanceData.available_balance.toString(),
+            lastUpdated: this.convertTimestampToDate(balanceData.last_updated),
+          };
+        });
+      }),
+      catchError((error) => {
+        console.error('Error fetching balances from blockchain:', error);
+        return of([]);
+      })
+    );
   }
 
   // ============================================================================
