@@ -130,7 +130,7 @@
               formControlName="riskTolerance"
               [showButtons]="true"
               [min]="1"
-              [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxRiskTolerance * 100) : 100"
+              [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxRiskTolerance) : 100"
               suffix="%"
               placeholder="5"
               [class]="'w-full ' + (isFieldInvalid('riskTolerance') ? 'ng-invalid ng-dirty' : '')">
@@ -145,7 +145,7 @@
           <!-- Max Position Size -->
           <div class="field">
             <label class="block text-sm font-medium mb-2">
-              Max Position Size (%) *
+              Max Position Size *
               <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help"
                 pTooltip="Maximum percentage of portfolio allocated to a single position"
               tooltipPosition="top"></i>
@@ -200,7 +200,7 @@
             <p-inputNumber
               formControlName="stopLossThreshold"
               [showButtons]="true"
-              [min]="selectedAgent.config ? Math.round(selectedAgent.config.minStopLoss * 100) : 1"
+              [min]="selectedAgent.config ? Math.round(selectedAgent.config.minStopLoss) : 1"
               [max]="50"
               suffix="%"
               placeholder="5"
@@ -216,7 +216,7 @@
           <!-- Max API Cost -->
           <div class="field">
             <label class="block text-sm font-medium mb-2">
-              Max API Cost per Day (ETH) *
+              Max API Cost per Day *
               <i class="pi pi-info-circle ml-1 text-surface-400 cursor-help"
                 pTooltip="Daily budget for AI model usage and API calls"
               tooltipPosition="top"></i>
@@ -247,25 +247,30 @@
               tooltipPosition="top"></i>
             </label>
             <p-autocomplete
+              [suggestions]="filteredAutomationLevels"
+              (completeMethod)="filterAutomationLevels($event)"
               [dropdown]="true"
-              [suggestions]="automationLevels"
               formControlName="automationLevel"
               optionLabel="label"
               optionValue="value"
               placeholder="Select Automation"
               [class]="'w-full ' + (isFieldInvalid('automationLevel') ? 'ng-invalid ng-dirty' : '')">
-              <ng-template pTemplate="selectedItem" let-item>
-                @if (item) {
-                  <div>
-                    <div class="font-medium">{{ item.label }}</div>
-                    <div class="text-xs text-surface-500">{{ item.description }}</div>
-                  </div>
+              <ng-template pTemplate="selectedItem">
+                @if (subscriptionForm.get('automationLevel')?.value) {
+                  @for (level of automationLevels; track level.value) {
+                    @if (level.value === subscriptionForm.get('automationLevel')?.value) {
+                      <div>
+                        <div class="font-medium">{{ level.label }}</div>
+                        <div class="text-xs text-surface-500">{{ level.description }}</div>
+                      </div>
+                    }
+                  }
                 }
               </ng-template>
-              <ng-template pTemplate="item" let-item>
+              <ng-template let-level pTemplate="item">
                 <div>
-                  <div class="font-medium">{{ item.label }}</div>
-                  <div class="text-xs text-surface-500">{{ item.description }}</div>
+                  <div class="font-medium">{{ level.label }}</div>
+                  <div class="text-xs text-surface-500">{{ level.description }}</div>
                 </div>
               </ng-template>
             </p-autocomplete>
@@ -437,7 +442,7 @@
           formControlName="maxPositionSize"
           [showButtons]="true"
           [min]="1"
-          [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxPositionSize * 100) : 100"
+          [max]="selectedAgent.config ? Math.round(selectedAgent.config.maxPositionSize) : 100"
           suffix="%"
           placeholder="10"
           [class]="'w-full ' + (isFieldInvalid('maxPositionSize') ? 'ng-invalid ng-dirty' : '')">
@@ -449,7 +454,7 @@
         }
         @if (selectedAgent.config) {
           <small class="text-surface-500 block mt-1">
-            Agent limit: {{ Math.round(selectedAgent.config.maxPositionSize * 100) }}%
+            Agent limit: {{ Math.round(selectedAgent.config.maxPositionSize) }}%
           </small>
         }
       </div>
